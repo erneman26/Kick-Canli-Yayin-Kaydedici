@@ -17,8 +17,8 @@ import math
 
 # ---------- VERSİYON ----------
 VERSION = "v1.0"
-GITHUB_USERNAME = "erneman26"                    # <-- Senin kullanıcı adın
-REPO_NAME = "Kick-Canli-Yayin-Kaydedici"         # <-- Doğru repo adı 
+GITHUB_USERNAME = "erneman26"                    
+REPO_NAME = "Kick-Canli-Yayin-Kaydedici"         
 VERSION_CHECK_URL = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{REPO_NAME}/main/version.json"
 
 # ---------- KONSOL RENKLERİ ----------
