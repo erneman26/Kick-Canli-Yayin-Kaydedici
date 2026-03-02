@@ -16,9 +16,9 @@ import io
 import math
 
 # ---------- VERSİYON ----------
-VERSION = "v1.0"
-GITHUB_USERNAME = "erneman26"                    
-REPO_NAME = "Kick-Canli-Yayin-Kaydedici"         
+VERSION = "v1.1"  
+GITHUB_USERNAME = "erneman26"
+REPO_NAME = "Kick-Canli-Yayin-Kaydedici"
 VERSION_CHECK_URL = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{REPO_NAME}/main/version.json"
 
 # ---------- KONSOL RENKLERİ ----------
@@ -758,20 +758,27 @@ def record_loop():
             log_error(f"Döngü hatası: {e}\n{traceback.format_exc()}")
             time.sleep(10)
 
+# ---------- TEK BUTON İŞLEVİ (BAŞLAT/DURDUR) ----------
+def toggle_record():
+    if recording:
+        stop_record()
+        toggle_button.configure(text="🚀 BAŞLAT", fg_color="green")
+    else:
+        start_record()
+        toggle_button.configure(text="⏹ DURDUR", fg_color="red")
+
 # ---------- START ----------
 def start_record():
     global recording, was_recording, current_filename
 
-    if recording:
-        log("⚠ Zaten kayıt yapılıyor", "orange")
-        return
-
     if not channel_entry.get():
         log("❌ Lütfen kanal adı girin", "red")
+        toggle_button.configure(text="🚀 BAŞLAT", fg_color="green")
         return
 
     if not folder_entry.get():
         log("❌ Lütfen kayıt klasörü seçin", "red")
+        toggle_button.configure(text="🚀 BAŞLAT", fg_color="green")
         return
 
     recording = True
@@ -834,7 +841,7 @@ def on_closing():
 
 # ---------- ARAYÜZ ----------
 root = ctk.CTk()
-root.geometry("800x850")
+root.geometry("800x800")
 root.title(f"Kick Canlı Yayın Kaydedici {VERSION} - erneman26")
 
 # ---------- İKON AYARI ----------
@@ -941,7 +948,7 @@ theme_menu.pack(side="right", padx=5)
 # GitHub bilgisi
 github_label = ctk.CTkLabel(
     root, 
-    text=f"📁 GitHub: {GITHUB_USERNAME}/{REPO_NAME}", 
+    text=f"📁 GitHub: {GITHUB_USERNAME}/{REPO_NAME} | Versiyon: {VERSION}", 
     font=("Arial", 11),
     text_color="gray50"
 )
@@ -951,13 +958,24 @@ github_label.pack(pady=2)
 button_frame = ctk.CTkFrame(root)
 button_frame.pack(pady=10)
 
-start_button = ctk.CTkButton(button_frame, text="🚀 BAŞLAT", command=start_record, fg_color="green", width=120)
-start_button.pack(side="left", padx=10)
+# TEK BUTON (BAŞLAT/DURDUR)
+toggle_button = ctk.CTkButton(
+    button_frame, 
+    text="🚀 BAŞLAT", 
+    command=toggle_record, 
+    fg_color="green", 
+    width=200,
+    height=50,
+    font=("Arial", 16, "bold")
+)
+toggle_button.pack(side="left", padx=10)
 
-stop_button = ctk.CTkButton(button_frame, text="⏹ DURDUR", command=stop_record, fg_color="red", width=120)
-stop_button.pack(side="left", padx=10)
-
-history_button = ctk.CTkButton(button_frame, text="📋 Geçmiş", command=show_history, width=120)
+history_button = ctk.CTkButton(
+    button_frame, 
+    text="📋 Geçmiş", 
+    command=show_history, 
+    width=120
+)
 history_button.pack(side="left", padx=10)
 
 update_button = ctk.CTkButton(
@@ -999,17 +1017,18 @@ threading.Thread(target=check_for_updates, daemon=True).start()
 log(f"🎥 Kick Canlı Yayın Kaydedici {VERSION} başlatıldı", "green")
 log("="*50, "white")
 log(f"✅ GitHub: {GITHUB_USERNAME}/{REPO_NAME}", "purple")
-log("✅ Tik animasyonlu seçenekler eklendi!", "purple")
+log("✅ YENİ: Tek buton sistemi (BAŞLAT/DURDUR aynı buton)", "orange")
+log("✅ Tik animasyonlu seçenekler", "purple")
 log("✅ Otomatik kalite seçimi", "cyan")
 log("✅ İnternet kopması toleransı", "cyan")
-log("✅ Otomatik yeniden bağlanma", "cyan")
 log("✅ Kayıt geçmişi", "cyan")
-log("👉 Kanal adını girin ve BAŞLAT'a tıklayın", "cyan")
+log("👉 Kanal adını girin ve butona tıklayın", "cyan")
 
 # CMD'ye son mesaj
 print(Renkler.YESIL + "\n" + "-"*70)
 print(f"✅ Kick Canlı Yayın Kaydedici {VERSION} başarıyla başlatıldı!")
 print(f"📁 GitHub: {GITHUB_USERNAME}/{REPO_NAME}")
+print("📝 YENİ: Tek buton sistemi aktif!")
 print("📝 Hata durumunda 'hata_log.txt' dosyasını kontrol edin")
 print("-"*70 + "\n" + Renkler.SON)
 

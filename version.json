@@ -1,5 +1,5 @@
 {
-    "version": "v1.0",
+    "version": "v1.1",
     "download_url": "https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/releases/latest",
-    "release_notes": "🎉 İLK SÜRÜM ÖZELLİKLERİ:\n• Canlı yayınları otomatik kaydetme\n• Kayıt süresi ve dosya boyutu gösterimi\n• Yayın bitince bilgisayar kapatma\n• Yayın bitince uygulama kapatma\n• Otomatik kalite seçimi\n• Kayıt geçmişi\n• Tik animasyonlu seçenekler"
+    "release_notes": "🎉 v1.1 YENİLİKLERİ:\n• Tek buton sistemi - BAŞLAT ve DURDUR aynı butonda\n• Daha sade ve kullanıcı dostu arayüz\n• Hata düzeltmeleri ve performans iyileştirmeleri"
 }
