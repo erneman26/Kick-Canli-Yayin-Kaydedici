@@ -1,4 +1,4 @@
-# 🎥 Kick Canlı Yayın Kaydedici v1.0
+# 🎥 Kick Canlı Yayın Kaydedici v1.1
 
 Kick platformundaki canlı yayınları otomatik olarak kaydeden program.
 
@@ -8,10 +8,15 @@ Kick platformundaki canlı yayınları otomatik olarak kaydeden program.
 [https://streamlink.github.io/](https://streamlink.github.io/)
 
 ### 2. Kick Kaydedici'yi İndir
-Sağ taraftaki Releases sayfasından son sürümü indir.
+Sağ taraftaki Releases sayfasından son sürümü (**KickCanliYayinKaydedici_v1.1.rar**) indir.
 
-### 3. Çalıştır
-İndirdiğin `KickCanliYayinKaydedici_v1.0.exe` dosyasını çalıştır.
+### 3. RAR'dan Çıkar
+İndirdiğin RAR dosyasını WinRAR veya 7-Zip ile aç. İçinden çıkanlar:
+- `KickCanliYayinKaydedici_v1.1.exe` - Programın kendisi
+- `kayit_gecmisi.json` - Kayıt geçmişi dosyası (otomatik oluşur/güncellenir)
+
+### 4. Çalıştır
+`KickCanliYayinKaydedici_v1.1.exe` dosyasını çalıştır.
 
 ---
 
@@ -29,21 +34,30 @@ Program çalışırken arkada bir komut ekranı açık kalacaktır. **Bu pencere
 
 1. Kanal adını gir
 2. Klasör seç
-3. BAŞLAT'a bas
+3. **TEK BUTON** ile kaydı başlat/durdur (butonun rengi ve yazısı değişir)
 4. Kayıt başlasın
 
 ---
 
 ## ✨ ÖZELLİKLER
 
+- **Tek buton sistemi** - BAŞLAT ve DURDUR aynı butonda
 - Otomatik kayıt (yayın başlayınca başlar, bitince durur)
 - Kayıt süresi ve dosya boyutu gösterimi
 - Otomatik kalite seçimi
-- Kayıt geçmişi
+- Kayıt geçmişi (`kayit_gecmisi.json` dosyasında tutulur)
 - İnternet kopması toleransı
 - Yayın bitince bilgisayar kapatma
 - Yayın bitince uygulama kapatma
 - Karanlık/Aydınlık tema
+
+---
+
+## 📁 DOSYALAR HAKKINDA
+
+- `kayit_gecmisi.json` - Kayıt geçmişinizin tutulduğu dosya
+- Bu dosyayı silerseniz geçmişiniz sıfırlanır
+- Programı güncellerken eski JSON dosyanızı yeni klasöre kopyalayarak geçmişinizi koruyabilirsiniz
 
 ---
 
@@ -53,4 +67,3 @@ MIT License
 ---
 
 ⭐ Beğendiysen yıldız vermeyi unutma!
-
