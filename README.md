@@ -12,11 +12,11 @@ Sağ taraftaki Releases sayfasından son sürümü (**KickCanliYayinKaydedici_v1
 
 ### 3. RAR'dan Çıkar
 İndirdiğin RAR dosyasını WinRAR veya 7-Zip ile aç. İçinden çıkanlar:
-- `KickCanliYayinKaydedici_v1.1.exe` - Programın kendisi
+- `KickCanliYayinKaydedici.exe` - Programın kendisi
 - `kayit_gecmisi.json` - Kayıt geçmişi dosyası (otomatik oluşur/güncellenir)
 
 ### 4. Çalıştır
-`KickCanliYayinKaydedici_v1.1.exe` dosyasını çalıştır.
+`KickCanliYayinKaydedici.exe` dosyasını çalıştır.
 
 ---
 
