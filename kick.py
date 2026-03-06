@@ -16,10 +16,128 @@ import io
 import math
 
 # ---------- VERSİYON ----------
-VERSION = "v1.1"  
+VERSION = "v1.2"
 GITHUB_USERNAME = "erneman26"
 REPO_NAME = "Kick-Canli-Yayin-Kaydedici"
 VERSION_CHECK_URL = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{REPO_NAME}/main/version.json"
+
+# ---------- DİL DOSYASI ----------
+LANGUAGES = {
+    "Türkçe": {
+        "channel_placeholder": "Kanal adı",
+        "quality_auto": "otomatik",
+        "quality_best": "en iyi",
+        "folder_placeholder": "Kayıt klasörü",
+        "folder_select": "Seç",
+        "shutdown_title": "KAPATMA SEÇENEKLERİ (sadece biri seçilebilir)",
+        "shutdown_option": "Yayın bitince bilgisayarı kapat",
+        "close_app_option": "Yayın bitince uygulamayı kapat",
+        "other_title": "DİĞER AYARLAR",
+        "theme_label": "Tema:",
+        "theme_dark": "Koyu",
+        "theme_light": "Açık",
+        "theme_system": "Sistem",
+        "button_start": "BAŞLAT",
+        "button_stop": "DURDUR",
+        "button_history": "Yayın Geçmişi",
+        "button_update": "Güncelle",
+        "status_ready": "HAZIR",
+        "status_waiting": "YAYIN BEKLENİYOR",
+        "status_online": "KAYIT",
+        "status_offline": "ÇEVRİMDIŞI",
+        "status_stopped": "DURDU",
+        "timer": "⏱",
+        "filesize": "💾",
+        "log_start": "Program başlatıldı",
+        "log_button": "Tek buton sistemi aktif",
+        "log_quality": "Otomatik kalite seçimi",
+        "log_internet": "İnternet kopması toleransı",
+        "log_instruction": "Kanal adını girin ve BAŞLAT'a tıklayın",
+        "error_channel": "Lütfen kanal adı girin",
+        "error_folder": "Lütfen kayıt klasörü seçin",
+        "shutdown_active": "Yayın bitince bilgisayar KAPATMA özelliği AKTİF",
+        "close_app_active": "Yayın bitince uygulama KAPATMA özelliği AKTİF",
+        "shutdown_cancel": "Bilgisayar kapatma iptal edildi",
+        "close_app_cancel": "Uygulama kapatma iptal edildi",
+        "shutdown_warning": "Bilgisayar 30 saniye sonra KAPANACAK! Kayıt tamamlandı.",
+        "close_app_warning": "Uygulama 10 saniye sonra KAPANACAK! Kayıt tamamlandı.",
+        "shutdown_countdown": "Kapatmaya {} saniye kaldı...",
+        "close_app_countdown": "Uygulama {} saniye sonra kapanacak...",
+        "cancel_shutdown": "Kapatmayı iptal etmek için DURDUR butonuna basın!",
+        "internet_lost": "İnternet bağlantısı kesildi! Bekleniyor...",
+        "internet_back": "İnternet bağlantısı geri geldi!",
+        "no_internet": "İnternet yok, 30 saniye bekleniyor...",
+        "stream_ended": "Yayın sona erdi! {} artık çevrimdışı",
+        "stream_started": "CANLI YAYIN BAŞLADI! Kayıt alınıyor...",
+        "folder_created": "Kanal klasörü oluşturuldu: {}",
+        "file_info": "Dosya: {}",
+        "file_size": "Kaydedilen dosya boyutu: {}",
+        "total_size": "Toplam dosya boyutu: {}",
+        "current_size": "Anlık dosya boyutu: {}",
+        "recording_stopped": "Kayıt durduruldu",
+        "final_size": "Kayıt durduruldu - Son dosya boyutu: {}",
+        "update_check": "Güncelleme kontrol ediliyor...",
+        "update_available": "YENİ VERSİYON MEVCUT: {}",
+        "update_current": "Uygulamanız güncel!",
+        "update_error": "Güncelleme sunucusuna ulaşılamadı",
+        "update_timeout": "Güncelleme kontrolü zaman aşımına uğradı",
+        "update_connection_error": "İnternet bağlantısı olmadığı için güncelleme kontrol edilemedi",
+        "update_download": "İndirme sayfası açıldı",
+        "update_later": "Güncelleme daha sonraya ertelendi",
+        "update_question": "Şimdi indirme sayfasını açmak ister misiniz?",
+        "update_title": "GÜNCELLEME MEVCUT",
+        "update_downloaded": "İndirme sayfası tarayıcınızda açıldı.",
+        "update_complete": "İşlem Tamam",
+        "error_streamlink": "Streamlink bulunamadı! https://streamlink.github.io/ adresinden indirin",
+        "error_streamlink_title": "Hata",
+        "error_generic": "Streamlink hatası: {}",
+        "exit_warning": "Kayıt devam ediyor! Gerçekten çıkmak istiyor musunuz?",
+        "exit_title": "Uyarı",
+        "exit_message": "Program kapatılıyor...",
+    }
+}
+
+# ---------- DİL DEĞİŞKENİ ----------
+current_lang = "Türkçe"
+
+def _(key):
+    """Çeviri fonksiyonu"""
+    return LANGUAGES[current_lang].get(key, LANGUAGES["Türkçe"].get(key, key))
+
+def change_language(choice):
+    global current_lang
+    current_lang = choice
+    update_ui_texts()
+
+def update_ui_texts():
+    """Tüm UI metinlerini güncelle"""
+    channel_entry.configure(placeholder_text=_("channel_placeholder"))
+    quality_menu.configure(values=[_("quality_auto"), "best", "1080p", "720p", "480p", "360p", "audio_only"])
+    quality_menu.set(_("quality_auto"))
+    quality_label.configure(text=f"({_('quality_auto')})")
+    folder_entry.configure(placeholder_text=_("folder_placeholder"))
+    folder_button.configure(text=_("folder_select"))
+    shutdown_title.configure(text=_("shutdown_title"))
+    shutdown_check.label.configure(text=_("shutdown_option"))
+    close_app_check.label.configure(text=_("close_app_option"))
+    other_title.configure(text=_("other_title"))
+    theme_label.configure(text=_("theme_label"))
+    theme_menu.configure(values=[_("theme_dark"), _("theme_light"), _("theme_system")])
+    current_theme = theme_menu.get()
+    if current_theme in ["Koyu", "Dark", "Dunkel", "Sombre", "Oscuro", "Scuro", "Escuro", "Тёмная", "ダーク", "다크", "深色"]:
+        theme_menu.set(_("theme_dark"))
+    elif current_theme in ["Açık", "Light", "Hell", "Clair", "Claro", "Chiaro", "Светлая", "ライト", "라이트", "浅色"]:
+        theme_menu.set(_("theme_light"))
+    else:
+        theme_menu.set(_("theme_system"))
+    
+    if recording:
+        toggle_button.configure(text=_("button_stop"))
+    else:
+        toggle_button.configure(text=_("button_start"))
+    history_button.configure(text=_("button_history"))
+    update_button.configure(text=_("button_update"))
+    status_label.configure(text=f"● {_('status_ready')}")
 
 # ---------- KONSOL RENKLERİ ----------
 class Renkler:
@@ -54,7 +172,7 @@ print("")
 
 # Konsol başlığını değiştir
 try:
-    ctypes.windll.kernel32.SetConsoleTitleW(f"Kick Canlı Yayın Kaydedici {VERSION} - BU PENCEREYİ KAPATMAYIN!")
+    ctypes.windll.kernel32.SetConsoleTitleW(f"Kick Canlı Yayın Kaydedici {VERSION}")
 except:
     pass
 
@@ -83,7 +201,7 @@ class TickAnimatedCheckbox(ctk.CTkFrame):
         self.animation_progress = 0
         self.is_animating = False
         
-        # Ana frame
+        # Ana frame - arkaplanı transparan
         self.check_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.check_frame.pack(anchor="w")
         
@@ -105,7 +223,8 @@ class TickAnimatedCheckbox(ctk.CTkFrame):
         self.label = ctk.CTkLabel(
             self.check_frame, 
             text=text,
-            font=("Arial", 13)
+            font=("Arial", 13),
+            fg_color="transparent"
         )
         self.label.pack(side="left")
         
@@ -230,13 +349,11 @@ class TickAnimatedCheckbox(ctk.CTkFrame):
         else:
             self.canvas.delete("tick")
 
-# ---------- OTOMATİK GÜNCELLEME (GITHUB) ----------
+# ---------- OTOMATİK GÜNCELLEME ----------
 def check_for_updates():
     try:
-        log("🔄 GitHub'dan güncelleme kontrol ediliyor...", "blue")
-        log(f"📁 Kullanıcı: {GITHUB_USERNAME}, Proje: {REPO_NAME}", "cyan")
+        log(f"🔄 {_('update_check')}", "blue")
         
-        # GitHub'dan versiyon bilgisini al
         response = requests.get(VERSION_CHECK_URL, timeout=5)
         
         if response.status_code == 200:
@@ -245,77 +362,54 @@ def check_for_updates():
             download_url = data.get("download_url", f"https://github.com/{GITHUB_USERNAME}/{REPO_NAME}/releases/latest")
             release_notes = data.get("release_notes", "Yeni özellikler ve iyileştirmeler")
             
-            # Versiyonları karşılaştır
             if latest_version > VERSION:
-                # Yeni versiyon var
-                log(f"✨ YENİ VERSİYON MEVCUT: {latest_version}", "green")
-                log(f"📝 Sürüm notları: {release_notes}", "cyan")
+                log(f"✨ {_('update_available').format(latest_version)}", "green")
                 
-                # Detaylı bilgi mesajı
                 update_message = (
                     f"╔════════════════════════════════════════╗\n"
-                    f"║        🚀 GÜNCELLEME MEVCUT!          ║\n"
+                    f"║        🚀 {_('update_title')}          ║\n"
                     f"╚════════════════════════════════════════╝\n\n"
                     f"📌 Mevcut versiyon: {VERSION}\n"
                     f"✨ Yeni versiyon: {latest_version}\n\n"
                     f"📋 YENİ ÖZELLİKLER:\n"
                     f"{release_notes}\n\n"
-                    f"💡 En yeni özellikleri kullanmak için güncelleyin.\n\n"
-                    f"🔗 GitHub: {download_url}"
+                    f"💡 {_('update_question')}"
                 )
                 
-                # Kullanıcıya sor
                 result = messagebox.askyesno(
-                    "🔄 GÜNCELLEME MEVCUT", 
-                    update_message + "\n\nŞimdi indirme sayfasını açmak ister misiniz?",
+                    f"🔄 {_('update_title')}", 
+                    update_message,
                     icon="info"
                 )
                 
                 if result:
-                    # İndirme sayfasını aç
                     webbrowser.open(download_url)
-                    log(f"⬇ GitHub indirme sayfası açıldı: {download_url}", "cyan")
+                    log(f"⬇ {_('update_download')}", "cyan")
                     messagebox.showinfo(
-                        "✅ İşlem Tamam",
-                        "İndirme sayfası tarayıcınızda açıldı.\n"
-                        "Yeni sürümü indirip kurabilirsiniz.",
+                        f"✅ {_('update_complete')}",
+                        _("update_downloaded"),
                         icon="info"
                     )
                 else:
-                    log("⏰ Güncelleme daha sonraya ertelendi", "orange")
+                    log(f"⏰ {_('update_later')}", "orange")
                     
             else:
-                # Versiyon güncel
-                log(f"✅ Uygulamanız güncel! (Versiyon: {VERSION})", "green")
+                log(f"✅ {_('update_current')}", "green")
                 
         else:
-            log("⚠ GitHub sunucusuna ulaşılamadı", "orange")
+            log(f"⚠ {_('update_error')}", "orange")
             messagebox.showwarning(
-                "⚠ Uyarı",
-                f"GitHub sunucusuna ulaşılamadı.\n"
-                f"Kontrol: https://github.com/{GITHUB_USERNAME}/{REPO_NAME}\n"
-                f"İnternet bağlantınızı kontrol edin veya daha sonra tekrar deneyin.",
+                f"⚠ {_('update_error')}",
+                _("update_error"),
                 icon="warning"
             )
             
     except requests.exceptions.Timeout:
-        log("⏱ Güncelleme kontrolü zaman aşımına uğradı", "orange")
-        messagebox.showerror(
-            "⏱ Zaman Aşımı",
-            "GitHub bağlantısı zaman aşımına uğradı.\n"
-            "İnternet hızınızı kontrol edip tekrar deneyin.",
-            icon="error"
-        )
+        log(f"⏱ {_('update_timeout')}", "orange")
     except requests.exceptions.ConnectionError:
-        log("🌐 İnternet bağlantısı olmadığı için güncelleme kontrol edilemedi", "orange")
-        messagebox.showerror(
-            "🌐 Bağlantı Hatası",
-            "İnternet bağlantınız olmadığı için güncelleme kontrol edilemedi.\n"
-            "Bağlantınızı kontrol edip tekrar deneyin.",
-            icon="error"
-        )
+        log(f"🌐 {_('update_connection_error')}", "orange")
     except Exception as e:
-        log(f"❌ Güncelleme kontrolü sırasında hata: {str(e)[:50]}", "red")
+        log(f"❌ {_('update_error')}", "red")
         log_error(f"Güncelleme hatası: {traceback.format_exc()}")
 
 # ---------- KAYIT GEÇMİŞİ ----------
@@ -339,7 +433,6 @@ def save_to_history(channel, filename, duration, size):
         "sure": duration,
         "boyut": size
     })
-    # Son 100 kaydı tut
     if len(history) > 100:
         history = history[-100:]
     
@@ -351,7 +444,7 @@ def save_to_history(channel, filename, duration, size):
 
 def show_history():
     history_window = ctk.CTkToplevel(root)
-    history_window.title("📋 Kayıt Geçmişi")
+    history_window.title(f"📋 {_('button_history')}")
     history_window.geometry("600x400")
     
     history = load_history()
@@ -359,11 +452,10 @@ def show_history():
     if not history:
         ctk.CTkLabel(history_window, text="Henüz kayıt yok").pack(pady=20)
     else:
-        # Scrollable frame
         scroll_frame = ctk.CTkScrollableFrame(history_window)
         scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        for kayit in reversed(history[-50:]):  # Son 50 kaydı göster
+        for kayit in reversed(history[-50:]):
             kayit_frame = ctk.CTkFrame(scroll_frame)
             kayit_frame.pack(fill="x", pady=2)
             
@@ -389,9 +481,9 @@ def get_file_size(filepath):
 def update_file_size():
     if recording and current_filename and os.path.exists(current_filename):
         size_str = get_file_size(current_filename)
-        size_label.configure(text=f"💾 Dosya boyutu: {size_str}")
+        size_label.configure(text=f"{_('filesize')} {size_str}")
     else:
-        size_label.configure(text="💾 Dosya boyutu: -")
+        size_label.configure(text=f"{_('filesize')} -")
     root.after(2000, update_file_size)
 
 # ---------- HATA LOGLAMA ----------
@@ -438,38 +530,38 @@ def check_internet():
 def shutdown_computer():
     global shutdown_after, was_recording
     
-    log("⚠ Bilgisayar 30 saniye sonra KAPANACAK! Kayıt tamamlandı.", "purple")
-    log("⏰ Kapatmayı iptal etmek için DURDUR butonuna basın!", "orange")
+    log(f"⚠ {_('shutdown_warning')}", "purple")
+    log(f"⏰ {_('cancel_shutdown')}", "orange")
     
     for i in range(30, 0, -1):
         if not shutdown_after or not was_recording:
-            log("✅ Bilgisayar kapatma iptal edildi!", "green")
+            log(f"✅ {_('shutdown_cancel')}", "green")
             return
         if i % 10 == 0 or i <= 5:
-            log(f"⏳ Kapatmaya {i} saniye kaldı...", "orange")
+            log(f"⏳ {_('shutdown_countdown').format(i)}", "orange")
         time.sleep(1)
     
     if shutdown_after and was_recording:
-        log("💻 Bilgisayar kapatılıyor... Hoşçakalın!", "purple")
+        log(f"💻 {_('shutdown_warning')}", "purple")
         os.system("shutdown /s /t 5")
 
 # ---------- UYGULAMAYI KAPAT ----------
 def close_app():
     global close_app_after, was_recording
     
-    log("⚠ Uygulama 10 saniye sonra KAPANACAK! Kayıt tamamlandı.", "purple")
-    log("⏰ Kapatmayı iptal etmek için DURDUR butonuna basın!", "orange")
+    log(f"⚠ {_('close_app_warning')}", "purple")
+    log(f"⏰ {_('cancel_shutdown')}", "orange")
     
     for i in range(10, 0, -1):
         if not close_app_after or not was_recording:
-            log("✅ Uygulama kapatma iptal edildi!", "green")
+            log(f"✅ {_('close_app_cancel')}", "green")
             return
         if i <= 3:
-            log(f"⏳ Uygulama {i} saniye sonra kapanacak...", "orange")
+            log(f"⏳ {_('close_app_countdown').format(i)}", "orange")
         time.sleep(1)
     
     if close_app_after and was_recording:
-        log("👋 Uygulama kapatılıyor... Hoşçakalın!", "purple")
+        log(f"👋 {_('close_app_warning')}", "purple")
         root.quit()
         os._exit(0)
 
@@ -503,12 +595,17 @@ def select_folder():
     if folder:
         folder_entry.delete(0, "end")
         folder_entry.insert(0, folder)
-        log(f"📁 Klasör seçildi: {folder}", "green")
+        log(f"📁 {_('folder_select')}: {folder}", "green")
 
 # ---------- TEMA DEĞİŞTİR ----------
 def change_theme(choice):
-    ctk.set_appearance_mode(choice)
-    log(f"🎨 Tema değiştirildi: {choice}", "blue")
+    theme_map = {
+        _("theme_dark"): "dark",
+        _("theme_light"): "light",
+        _("theme_system"): "system"
+    }
+    ctk.set_appearance_mode(theme_map.get(choice, "dark"))
+    log(f"🎨 {_('theme_label')} {choice}", "blue")
 
 # ---------- TIMER ----------
 def update_timer():
@@ -517,7 +614,7 @@ def update_timer():
         hrs = elapsed // 3600
         mins = (elapsed % 3600) // 60
         secs = elapsed % 60
-        timer_label.configure(text=f"⏱ Kayıt süresi: {hrs:02}:{mins:02}:{secs:02}")
+        timer_label.configure(text=f"{_('timer')} {hrs:02}:{mins:02}:{secs:02}")
     root.after(1000, update_timer)
 
 # ---------- ONLINE KONTROL ----------
@@ -526,16 +623,15 @@ def check_live(channel):
     
     if not check_internet():
         if not internet_offline:
-            log("🌐 İnternet bağlantısı kesildi! Bekleniyor...", "orange")
+            log(f"🌐 {_('internet_lost')}", "orange")
             internet_offline = True
         return False
     else:
         if internet_offline:
-            log("🌐 İnternet bağlantısı geri geldi!", "green")
+            log(f"🌐 {_('internet_back')}", "green")
             internet_offline = False
     
     try:
-        # Yöntem 1: API
         url = f"https://kick.com/api/v2/channels/{channel}"
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -554,12 +650,7 @@ def check_live(channel):
         except:
             pass
         
-        # Yöntem 2: Sayfa içeriği
         url = f"https://kick.com/{channel}"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
-        
         r = requests.get(url, headers=headers, timeout=10)
         
         if r.status_code == 200:
@@ -567,7 +658,6 @@ def check_live(channel):
             if '"is_live":true' in html or 'isLive":true' in html:
                 return True
                 
-        # Yöntem 3: Streamlink
         try:
             result = subprocess.run(
                 ["streamlink", f"https://kick.com/{channel}"],
@@ -597,7 +687,7 @@ def on_shutdown_toggle():
         close_app_after = False
         close_app_check.set(False)
         shutdown_after = True
-        log("💤 Yayın bitince bilgisayar KAPATMA özelliği AKTİF", "purple")
+        log(f"💤 {_('shutdown_active')}", "purple")
     else:
         shutdown_after = False
 
@@ -607,7 +697,7 @@ def on_close_app_toggle():
         shutdown_after = False
         shutdown_check.set(False)
         close_app_after = True
-        log("👋 Yayın bitince uygulama KAPATMA özelliği AKTİF", "purple")
+        log(f"👋 {_('close_app_active')}", "purple")
     else:
         close_app_after = False
 
@@ -619,30 +709,30 @@ def record_loop():
     quality = quality_menu.get()
     folder = folder_entry.get()
     
-    if quality == "auto":
+    if quality == _("quality_auto") or quality == "auto":
         quality = find_best_quality(channel)
-        log(f"⚙ Otomatik kalite seçildi: {quality}", "cyan")
+        log(f"⚙ {_('quality_auto')}: {quality}", "cyan")
     
     offline_counter = 0
     max_offline_checks = 3
     was_live_before = False
     reconnect_attempts = 0
 
-    log(f"📺 Kanal: {channel}", "cyan")
-    log(f"⚙ Kalite: {quality}", "cyan")
-    log(f"📁 Klasör: {folder}", "cyan")
+    log(f"📺 {_('channel_placeholder')}: {channel}", "cyan")
+    log(f"⚙ {_('quality_auto')}: {quality}", "cyan")
+    log(f"📁 {_('folder_placeholder')}: {folder}", "cyan")
     
     if shutdown_after:
-        log("💤 Yayın bitince bilgisayar KAPANACAK", "purple")
+        log(f"💤 {_('shutdown_active')}", "purple")
     elif close_app_after:
-        log("👋 Yayın bitince uygulama KAPANACAK", "purple")
+        log(f"👋 {_('close_app_active')}", "purple")
     
-    log("🔄 Yayın takibi başladı...", "blue")
+    log(f"🔄 {_('log_instruction')}", "blue")
 
     while recording:
         try:
             if not check_internet():
-                log("🌐 İnternet yok, 30 saniye bekleniyor...", "orange")
+                log(f"🌐 {_('no_internet')}", "orange")
                 time.sleep(30)
                 continue
             
@@ -650,7 +740,7 @@ def record_loop():
             
             if not is_live:
                 offline_counter += 1
-                set_status("OFFLINE", "red")
+                set_status(_("status_offline"), "red")
                 
                 if offline_counter >= max_offline_checks:
                     if was_live_before:
@@ -658,22 +748,22 @@ def record_loop():
                             final_size = get_file_size(current_filename)
                             duration = datetime.timedelta(seconds=int(time.time() - start_time)) if start_time else "?"
                             save_to_history(channel, current_filename, str(duration), final_size)
-                            log(f"📊 Kaydedilen dosya boyutu: {final_size}", "green")
+                            log(f"📊 {_('file_size').format(final_size)}", "green")
                         
-                        log(f"📴 Yayın sona erdi! {channel} artık offline", "orange")
+                        log(f"📴 {_('stream_ended').format(channel)}", "orange")
                         
                         if shutdown_after and was_recording:
-                            log("🔌 Bilgisayar kapatma işlemi başlatılıyor...", "purple")
+                            log(f"🔌 {_('shutdown_warning')}", "purple")
                             threading.Thread(target=shutdown_computer, daemon=True).start()
                         elif close_app_after and was_recording:
-                            log("👋 Uygulama kapatma işlemi başlatılıyor...", "purple")
+                            log(f"👋 {_('close_app_warning')}", "purple")
                             threading.Thread(target=close_app, daemon=True).start()
                         
                         was_live_before = False
                         current_filename = None
                         reconnect_attempts = 0
                     
-                    log(f"⏳ Yayın offline, {channel} için bekleniyor...", "orange")
+                    log(f"⏳ {_('stream_ended').format(channel)}", "orange")
                     time.sleep(15)
                 else:
                     time.sleep(5)
@@ -685,20 +775,20 @@ def record_loop():
                     was_live_before = True
                     was_recording = True
                     
-                    log(f"🔴 CANLI YAYIN BAŞLADI! Kayıt alınıyor...", "green")
+                    log(f"🔴 {_('stream_started')}", "green")
                     
                     now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                     
                     channel_folder = os.path.join(folder, channel)
                     if not os.path.exists(channel_folder):
                         os.makedirs(channel_folder)
-                        log(f"📂 Kanal klasörü oluşturuldu: {channel}", "cyan")
+                        log(f"📂 {_('folder_created').format(channel)}", "cyan")
                     
                     current_filename = os.path.join(channel_folder, f"{channel}_{now}.mp4")
                     start_time = time.time()
-                    set_status("ONLINE - KAYIT", "green")
+                    set_status(_("status_online"), "green")
                     
-                    log(f"📁 Dosya: {os.path.basename(current_filename)}", "cyan")
+                    log(f"📁 {_('file_info').format(os.path.basename(current_filename))}", "cyan")
 
                     try:
                         process = subprocess.Popen([
@@ -718,43 +808,43 @@ def record_loop():
                         
                         if process.returncode != 0:
                             if "404" in stderr or "Not Found" in stderr:
-                                log("⚠ Yayın kesildi, yeniden bağlanılıyor...", "orange")
+                                log(f"⚠ {_('stream_ended').format(channel)}", "orange")
                                 reconnect_attempts += 1
                                 if reconnect_attempts <= max_reconnect_attempts:
                                     time.sleep(5)
                                     continue
                             else:
-                                log(f"❌ Streamlink hatası: {stderr[:200]}", "red")
+                                log(f"❌ {_('error_generic').format(stderr[:200])}", "red")
                                 log_error(f"Streamlink hatası: {stderr}")
 
                     except FileNotFoundError:
-                        log("❌ Streamlink bulunamadı! https://streamlink.github.io/ adresinden indirin", "red")
-                        messagebox.showerror("Hata", "Streamlink bulunamadı!")
+                        log(f"❌ {_('error_streamlink')}", "red")
+                        messagebox.showerror(_("error_streamlink_title"), _("error_streamlink"))
                         break
                     except Exception as e:
-                        log(f"❌ Kayıt hatası: {e}", "red")
+                        log(f"❌ {_('error_generic').format(e)}", "red")
                         log_error(f"Kayıt hatası: {e}\n{traceback.format_exc()}")
 
-                    log("⏹ Yayın bitti veya kesildi", "orange")
+                    log(f"⏹ {_('recording_stopped')}", "orange")
                     
                     if current_filename and os.path.exists(current_filename):
                         final_size = get_file_size(current_filename)
-                        log(f"📊 Toplam dosya boyutu: {final_size}", "green")
+                        log(f"📊 {_('total_size').format(final_size)}", "green")
                     
                     start_time = None
-                    timer_label.configure(text="⏱ Kayıt süresi: 00:00:00")
+                    timer_label.configure(text=f"{_('timer')} 00:00:00")
                     time.sleep(5)
                 else:
-                    set_status("ONLINE - KAYIT", "green")
+                    set_status(_("status_online"), "green")
                     
                     if int(time.time()) % 10 == 0 and current_filename:
                         current_size = get_file_size(current_filename)
-                        log(f"📊 Anlık dosya boyutu: {current_size}", "blue")
+                        log(f"📊 {_('current_size').format(current_size)}", "blue")
                     
                     time.sleep(1)
                 
         except Exception as e:
-            log(f"❌ Döngü hatası: {e}", "red")
+            log(f"❌ {_('error_generic').format(e)}", "red")
             log_error(f"Döngü hatası: {e}\n{traceback.format_exc()}")
             time.sleep(10)
 
@@ -762,30 +852,30 @@ def record_loop():
 def toggle_record():
     if recording:
         stop_record()
-        toggle_button.configure(text="🚀 BAŞLAT", fg_color="green")
+        toggle_button.configure(text=_("button_start"), fg_color="green", state="normal")
     else:
+        if not channel_entry.get():
+            log(f"❌ {_('error_channel')}", "red")
+            toggle_button.configure(text=_("button_start"), fg_color="green", state="normal")
+            return
+
+        if not folder_entry.get():
+            log(f"❌ {_('error_folder')}", "red")
+            toggle_button.configure(text=_("button_start"), fg_color="green", state="normal")
+            return
+            
         start_record()
-        toggle_button.configure(text="⏹ DURDUR", fg_color="red")
+        toggle_button.configure(text=_("button_stop"), fg_color="red", state="normal")
 
 # ---------- START ----------
 def start_record():
     global recording, was_recording, current_filename
 
-    if not channel_entry.get():
-        log("❌ Lütfen kanal adı girin", "red")
-        toggle_button.configure(text="🚀 BAŞLAT", fg_color="green")
-        return
-
-    if not folder_entry.get():
-        log("❌ Lütfen kayıt klasörü seçin", "red")
-        toggle_button.configure(text="🚀 BAŞLAT", fg_color="green")
-        return
-
     recording = True
     was_recording = False
     current_filename = None
-    log("🎬 Recorder başlatıldı - Yayın bekleniyor...", "cyan")
-    set_status("YAYIN BEKLENİYOR", "orange")
+    log(f"🎬 {_('log_start')}", "cyan")
+    set_status(_("status_waiting"), "orange")
 
     threading.Thread(target=record_loop, daemon=True).start()
 
@@ -799,18 +889,18 @@ def stop_record():
     if shutdown_after:
         shutdown_after = False
         shutdown_check.set(False)
-        log("🛑 Bilgisayar kapatma iptal edildi!", "green")
+        log(f"🛑 {_('shutdown_cancel')}", "green")
     
     if close_app_after:
         close_app_after = False
         close_app_check.set(False)
-        log("🛑 Uygulama kapatma iptal edildi!", "green")
+        log(f"🛑 {_('close_app_cancel')}", "green")
 
     if process:
         try:
             process.terminate()
             process.kill()
-            log("⏹ Kayıt durduruldu", "red")
+            log(f"⏹ {_('recording_stopped')}", "red")
         except:
             pass
         process = None
@@ -819,30 +909,30 @@ def stop_record():
         final_size = get_file_size(current_filename)
         duration = datetime.timedelta(seconds=int(time.time() - start_time)) if start_time else "?"
         save_to_history(channel_entry.get().strip().lower(), current_filename, str(duration), final_size)
-        log(f"📊 Kayıt durduruldu - Son dosya boyutu: {final_size}", "green")
+        log(f"📊 {_('final_size').format(final_size)}", "green")
 
     start_time = None
     current_filename = None
-    set_status("DURDU", "gray")
-    timer_label.configure(text="⏱ Kayıt süresi: 00:00:00")
+    set_status(_("status_stopped"), "gray")
+    timer_label.configure(text=f"{_('timer')} 00:00:00")
 
 # ---------- PENCERE KAPANIRKEN ----------
 def on_closing():
     if recording:
-        if messagebox.askyesno("Uyarı", "Kayıt devam ediyor! Gerçekten çıkmak istiyor musunuz?"):
+        if messagebox.askyesno(_("exit_title"), _("exit_warning")):
             stop_record()
-            log("👋 Program kapatılıyor...", "blue")
-            print(Renkler.MAVI + "\nProgram kapatılıyor. İyi günler!" + Renkler.SON)
+            log(f"👋 {_('exit_message')}", "blue")
+            print(Renkler.MAVI + f"\n{_('exit_message')}" + Renkler.SON)
             root.destroy()
     else:
-        log("👋 Program kapatılıyor...", "blue")
-        print(Renkler.MAVI + "\nProgram kapatılıyor. İyi günler!" + Renkler.SON)
+        log(f"👋 {_('exit_message')}", "blue")
+        print(Renkler.MAVI + f"\n{_('exit_message')}" + Renkler.SON)
         root.destroy()
 
 # ---------- ARAYÜZ ----------
 root = ctk.CTk()
 root.geometry("800x800")
-root.title(f"Kick Canlı Yayın Kaydedici {VERSION} - erneman26")
+root.title(f"Kick Canlı Yayın Kaydedici {VERSION}")
 
 # ---------- İKON AYARI ----------
 def set_app_icon():
@@ -878,131 +968,163 @@ set_app_icon()
 root.protocol("WM_DELETE_WINDOW", on_closing)
 
 # Başlık
-title = ctk.CTkLabel(root, text="Kick Canlı Yayın Kaydedici", font=("Arial", 24, "bold"))
-title.pack(pady=10)
+title_frame = ctk.CTkFrame(root, fg_color="transparent")
+title_frame.pack(pady=10)
+
+title = ctk.CTkLabel(title_frame, text="Kick Canlı Yayın Kaydedici", font=("Arial", 24, "bold"))
+title.pack()
+
+# Dil seçimi
+lang_frame = ctk.CTkFrame(root, fg_color="transparent")
+lang_frame.pack(pady=5)
+
+lang_label = ctk.CTkLabel(lang_frame, text="🌐", font=("Arial", 14))
+lang_label.pack(side="left", padx=5)
+
+lang_menu = ctk.CTkOptionMenu(
+    lang_frame, 
+    values=list(LANGUAGES.keys()),
+    command=change_language,
+    width=150
+)
+lang_menu.set("Türkçe")
+lang_menu.pack(side="left", padx=5)
 
 # Kanal
-channel_entry = ctk.CTkEntry(root, placeholder_text="Kanal adı (örnek: pewdiepie)")
+channel_entry = ctk.CTkEntry(root, placeholder_text=_("channel_placeholder"))
 channel_entry.pack(pady=5, padx=20, fill="x")
 
 # Kalite
-quality_frame = ctk.CTkFrame(root)
+quality_frame = ctk.CTkFrame(root, fg_color="transparent")
 quality_frame.pack(pady=5, padx=20, fill="x")
 
-quality_menu = ctk.CTkOptionMenu(quality_frame, values=["auto", "best", "1080p", "720p", "480p", "360p", "audio_only"])
-quality_menu.set("auto")
+quality_menu = ctk.CTkOptionMenu(quality_frame, values=[_("quality_auto"), "best", "1080p", "720p", "480p", "360p", "audio_only"])
+quality_menu.set(_("quality_auto"))
 quality_menu.pack(side="left", padx=5)
 
-quality_label = ctk.CTkLabel(quality_frame, text="(auto = otomatik en iyi kalite)")
+quality_label = ctk.CTkLabel(quality_frame, text=f"({_('quality_auto')})", font=("Arial", 11), text_color="gray60")
 quality_label.pack(side="left", padx=5)
 
 # Klasör
-folder_entry = ctk.CTkEntry(root, placeholder_text="Kayıt klasörü")
-folder_entry.pack(pady=5, padx=20, fill="x")
+folder_frame = ctk.CTkFrame(root, fg_color="transparent")
+folder_frame.pack(pady=5, padx=20, fill="x")
 
-folder_button = ctk.CTkButton(root, text="📁 Klasör seç", command=select_folder)
-folder_button.pack(pady=5)
+folder_entry = ctk.CTkEntry(folder_frame, placeholder_text=_("folder_placeholder"))
+folder_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
-# Seçenekler
-options_frame = ctk.CTkFrame(root)
-options_frame.pack(pady=10, padx=20, fill="x")
+folder_button = ctk.CTkButton(folder_frame, text=_("folder_select"), command=select_folder, width=60)
+folder_button.pack(side="right")
 
-info_label = ctk.CTkLabel(
-    options_frame, 
-    text="ℹ Sadece bir seçenek işaretlenebilir", 
-    font=("Arial", 12, "italic"),
-    text_color="gray70"
+# ---------- KAPATMA SEÇENEKLERİ ----------
+shutdown_frame = ctk.CTkFrame(root, fg_color="transparent")
+shutdown_frame.pack(pady=10, padx=20, fill="x")
+
+shutdown_title = ctk.CTkLabel(
+    shutdown_frame, 
+    text=_("shutdown_title"), 
+    font=("Arial", 13, "bold"),
+    text_color="orange"
 )
-info_label.pack(anchor="w", padx=10, pady=5)
+shutdown_title.pack(anchor="w", padx=5, pady=5)
 
 shutdown_var = ctk.BooleanVar(value=False)
 close_app_var = ctk.BooleanVar(value=False)
 
 shutdown_check = TickAnimatedCheckbox(
-    options_frame, 
-    text="💤 Yayın bitince bilgisayarı KAPAT", 
+    shutdown_frame, 
+    text=_("shutdown_option"), 
     variable=shutdown_var,
     command=on_shutdown_toggle
 )
-shutdown_check.pack(anchor="w", padx=10, pady=5)
+shutdown_check.pack(anchor="w", padx=15, pady=2)
 
 close_app_check = TickAnimatedCheckbox(
-    options_frame, 
-    text="👋 Yayın bitince uygulamayı KAPAT", 
+    shutdown_frame, 
+    text=_("close_app_option"), 
     variable=close_app_var,
     command=on_close_app_toggle
 )
-close_app_check.pack(anchor="w", padx=10, pady=5)
+close_app_check.pack(anchor="w", padx=15, pady=2)
+
+# ---------- DİĞER AYARLAR ----------
+other_frame = ctk.CTkFrame(root, fg_color="transparent")
+other_frame.pack(pady=10, padx=20, fill="x")
+
+other_title = ctk.CTkLabel(
+    other_frame, 
+    text=_("other_title"), 
+    font=("Arial", 13, "bold"),
+    text_color="gray70"
+)
+other_title.pack(anchor="w", padx=5, pady=5)
 
 # Tema seçimi
-theme_frame = ctk.CTkFrame(root)
-theme_frame.pack(pady=5, padx=20, fill="x")
+theme_inner = ctk.CTkFrame(other_frame, fg_color="transparent")
+theme_inner.pack(anchor="w", padx=15, pady=2)
 
-theme_label = ctk.CTkLabel(theme_frame, text="Tema:")
+theme_label = ctk.CTkLabel(theme_inner, text=_("theme_label"), font=("Arial", 13))
 theme_label.pack(side="left", padx=5)
 
-theme_menu = ctk.CTkOptionMenu(theme_frame, values=["dark", "light", "system"], command=change_theme)
-theme_menu.set("dark")
-theme_menu.pack(side="right", padx=5)
-
-# GitHub bilgisi
-github_label = ctk.CTkLabel(
-    root, 
-    text=f"📁 GitHub: {GITHUB_USERNAME}/{REPO_NAME} | Versiyon: {VERSION}", 
-    font=("Arial", 11),
-    text_color="gray50"
+theme_menu = ctk.CTkOptionMenu(
+    theme_inner, 
+    values=[_("theme_dark"), _("theme_light"), _("theme_system")], 
+    command=change_theme, 
+    width=100
 )
-github_label.pack(pady=2)
+theme_menu.set(_("theme_dark"))
+theme_menu.pack(side="left", padx=5)
 
-# Butonlar
-button_frame = ctk.CTkFrame(root)
-button_frame.pack(pady=10)
-
-# TEK BUTON (BAŞLAT/DURDUR)
+# ---------- ANA BUTON (BAŞLAT/DURDUR) ----------
 toggle_button = ctk.CTkButton(
-    button_frame, 
-    text="🚀 BAŞLAT", 
+    root, 
+    text=_("button_start"), 
     command=toggle_record, 
     fg_color="green", 
-    width=200,
-    height=50,
-    font=("Arial", 16, "bold")
+    width=400,
+    height=60,
+    font=("Arial", 20, "bold")
 )
-toggle_button.pack(side="left", padx=10)
+toggle_button.pack(pady=20)
+
+# ---------- ALT BUTONLAR ----------
+button_frame = ctk.CTkFrame(root, fg_color="transparent")
+button_frame.pack(pady=10)
 
 history_button = ctk.CTkButton(
     button_frame, 
-    text="📋 Geçmiş", 
+    text=_("button_history"), 
     command=show_history, 
-    width=120
+    width=120,
+    height=40
 )
-history_button.pack(side="left", padx=10)
+history_button.pack(side="left", padx=5)
 
 update_button = ctk.CTkButton(
     button_frame, 
-    text="🔄 Güncelleme Kontrol", 
+    text=_("button_update"), 
     command=lambda: threading.Thread(target=check_for_updates, daemon=True).start(),
     fg_color="purple",
-    width=140
+    width=100,
+    height=40
 )
-update_button.pack(side="left", padx=10)
+update_button.pack(side="left", padx=5)
 
 # Durum
-status_label = ctk.CTkLabel(root, text="● HAZIR", text_color="gray", font=("Arial", 16))
+status_label = ctk.CTkLabel(root, text=f"● {_('status_ready')}", text_color="gray", font=("Arial", 14))
 status_label.pack(pady=5)
 
 # Timer ve Boyut
-info_frame = ctk.CTkFrame(root)
+info_frame = ctk.CTkFrame(root, fg_color="transparent")
 info_frame.pack(pady=5)
 
-timer_label = ctk.CTkLabel(info_frame, text="⏱ Kayıt süresi: 00:00:00", font=("Arial", 14))
+timer_label = ctk.CTkLabel(info_frame, text=f"{_('timer')} 00:00:00", font=("Arial", 13))
 timer_label.pack(side="left", padx=10)
 
-size_label = ctk.CTkLabel(info_frame, text="💾 Dosya boyutu: -", font=("Arial", 14))
+size_label = ctk.CTkLabel(info_frame, text=f"{_('filesize')} -", font=("Arial", 13))
 size_label.pack(side="left", padx=10)
 
 # Log box
-log_box = ctk.CTkTextbox(root, height=250)
+log_box = ctk.CTkTextbox(root, height=150)
 log_box.pack(padx=20, pady=10, fill="both", expand=True)
 log_box.configure(state="disabled")
 
@@ -1014,22 +1136,16 @@ update_file_size()
 threading.Thread(target=check_for_updates, daemon=True).start()
 
 # GUI'ye başlangıç mesajları
-log(f"🎥 Kick Canlı Yayın Kaydedici {VERSION} başlatıldı", "green")
+log(f"🎥 Kick Canlı Yayın Kaydedici {VERSION} {_('log_start')}", "green")
 log("="*50, "white")
-log(f"✅ GitHub: {GITHUB_USERNAME}/{REPO_NAME}", "purple")
-log("✅ YENİ: Tek buton sistemi (BAŞLAT/DURDUR aynı buton)", "orange")
-log("✅ Tik animasyonlu seçenekler", "purple")
-log("✅ Otomatik kalite seçimi", "cyan")
-log("✅ İnternet kopması toleransı", "cyan")
-log("✅ Kayıt geçmişi", "cyan")
-log("👉 Kanal adını girin ve butona tıklayın", "cyan")
+log(f"✅ {_('log_button')}", "purple")
+log(f"✅ {_('log_quality')}", "cyan")
+log(f"✅ {_('log_internet')}", "cyan")
+log(f"👉 {_('log_instruction')}", "cyan")
 
 # CMD'ye son mesaj
 print(Renkler.YESIL + "\n" + "-"*70)
-print(f"✅ Kick Canlı Yayın Kaydedici {VERSION} başarıyla başlatıldı!")
-print(f"📁 GitHub: {GITHUB_USERNAME}/{REPO_NAME}")
-print("📝 YENİ: Tek buton sistemi aktif!")
-print("📝 Hata durumunda 'hata_log.txt' dosyasını kontrol edin")
+print(f"✅ Kick Canlı Yayın Kaydedici {VERSION} başlatıldı")
 print("-"*70 + "\n" + Renkler.SON)
 
 root.mainloop()
