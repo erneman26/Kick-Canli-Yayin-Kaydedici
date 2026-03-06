@@ -1,4 +1,4 @@
-# 🎥 Kick Canlı Yayın Kaydedici v1.1
+# 🎥 Kick Canlı Yayın Kaydedici v1.2
 
 Kick platformundaki canlı yayınları otomatik olarak kaydeden program.
 
