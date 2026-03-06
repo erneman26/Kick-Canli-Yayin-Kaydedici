@@ -20,14 +20,19 @@ Kick platformundaki canlı yayınları otomatik olarak kaydeden program.
 ### 1. Streamlink'i İndir
 [https://streamlink.github.io/](https://streamlink.github.io/)
 
+<<<<<<< HEAD
 ### 2. Kick Kaydedici'yi İndir
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 Sağ taraftaki Releases sayfasından son sürümü indir.
+=======
+### 2. Programı İndir
+Sağ taraftaki Releases sayfasından en son sürümü indir.
+>>>>>>> d06ad0497d203913f6a6a1b85f2649127ebfee7f
 
 ### 3. Çalıştır
-İndirdiğin `KickCanliYayinKaydedici_v1.0.exe` dosyasını çalıştır.
+İndirdiğin `KickCanliYayinKaydedici.exe` dosyasını çalıştır.
 
 ---
 
@@ -44,7 +49,7 @@ Program çalışırken arkada bir komut ekranı açık kalacaktır. **Bu pencere
 ## 🚀 KULLANIM
 
 1. Kanal adını gir
-2. Klasör seç
+2. Kayıt klasörü seç
 3. BAŞLAT'a bas
 4. Kayıt başlasın
 
@@ -52,6 +57,7 @@ Program çalışırken arkada bir komut ekranı açık kalacaktır. **Bu pencere
 
 ## ✨ ÖZELLİKLER
 
+<<<<<<< HEAD
 - Otomatik kayıt (yayın başlayınca başlar, bitince durur)
 - Kayıt süresi ve dosya boyutu gösterimi
 - Otomatik kalite seçimi
@@ -128,15 +134,11 @@ Program çalışırken arkada bir komut ekranı açık kalacaktır. **Bu pencere
 
 ## ✨ ÖZELLİKLER
 
+=======
+>>>>>>> d06ad0497d203913f6a6a1b85f2649127ebfee7f
 - **Tek buton sistemi** - BAŞLAT ve DURDUR aynı butonda
-- Otomatik kayıt (yayın başlayınca başlar, bitince durur)
-- Kayıt süresi ve dosya boyutu gösterimi
-- Otomatik kalite seçimi
-- Kayıt geçmişi (`kayit_gecmisi.json` dosyasında tutulur)
-- İnternet kopması toleransı
-- Yayın bitince bilgisayar kapatma
-- Yayın bitince uygulama kapatma
-- Karanlık/Aydınlık tema
+- **Otomatik kayıt** - Yayın başlayınca başlar, bitince durur
+- **Anlık bilgi** - Kayıt süresi ve dosya boyutu gösterimi
 
 ---
 
