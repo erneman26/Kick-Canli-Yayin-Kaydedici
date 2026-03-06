@@ -1,5 +1,5 @@
 {
-    "version": "v1.1",
+    "version": "v1.2",
     "download_url": "https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/releases/latest",
-    "release_notes": "🎉 v1.1 YENİLİKLERİ:\n• Tek buton sistemi - BAŞLAT ve DURDUR aynı butonda\n• Daha sade ve kullanıcı dostu arayüz\n• Hata düzeltmeleri ve performans iyileştirmeleri"
+    "release_notes": "• Tek buton sistemi (BAŞLAT/DURDUR aynı butonda)\n• Otomatik kalite seçimi\n• İnternet kopması toleransı\n• Yayın bitince bilgisayar kapatma\n• Yayın bitince uygulama kapatma\n• Tema desteği (Koyu/Açık/Sistem)\n• Kayıt geçmişi\n• Güncelleme kontrolü\n• Çoklu dil desteği\n• Tik animasyonlu seçenekler"
 }
