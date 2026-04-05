@@ -1,5 +1,5 @@
 {
-    "version": "v1.2",
+    "version": "v1.3",
     "download_url": "https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/releases/latest",
-    "release_notes": "• Tek buton sistemi (BAŞLAT/DURDUR aynı butonda)\n• Otomatik kalite seçimi\n• İnternet kopması toleransı\n• Yayın bitince bilgisayar kapatma\n• Yayın bitince uygulama kapatma\n• Tema desteği (Koyu/Açık/Sistem)\n• Kayıt geçmişi\n• Güncelleme kontrolü\n• Çoklu dil desteği\n• Tik animasyonlu seçenekler"
+    "release_notes": "• Sistem dilini otomatik algılama (11 dil)\n• Gelişmiş kalite sistemi (mevcut kaliteyi otomatik bulur)\n• Profillerde canlı yayın durumu göstergesi (🟢/🔴)\n• Profile tıklayarak seçme/çıkarma\n• Profillerde klasör desteği\n• Seçili profil yeşil vurgulu gösterim\n• Modern animasyonlu butonlar\n• Yuvarlak köşeli kart tasarımı\n• Hover efektleri\n• Ayarlar sekmesinde düzenlenmiş bilgi kartı\n• Hata düzeltmeleri ve performans iyileştirmeleri"
 }

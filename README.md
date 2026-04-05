@@ -2,6 +2,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 # 🎥 Kick Canlı Yayın Kaydedici 
 =======
 # 🎥 Kick Canlı Yayın Kaydedici v1.1
@@ -12,8 +13,13 @@
 =======
 # 🎥 Kick Canlı Yayın Kaydedici 
 >>>>>>> 29dfe7562fce49045f82af705a1448a19845a807
+=======
+# 🎥 Kick Canlı Yayın Kaydedici
+>>>>>>> d06ad0497d203913f6a6a1b85f2649127ebfee7f
 
-Kick platformundaki canlı yayınları otomatik olarak kaydeden program.
+Kick platformundaki canlı yayınları otomatik olarak kaydeden kullanıcı dostu bir program.
+
+---
 
 ## 📥 KURULUM
 
@@ -139,14 +145,23 @@ Program çalışırken arkada bir komut ekranı açık kalacaktır. **Bu pencere
 - **Tek buton sistemi** - BAŞLAT ve DURDUR aynı butonda
 - **Otomatik kayıt** - Yayın başlayınca başlar, bitince durur
 - **Anlık bilgi** - Kayıt süresi ve dosya boyutu gösterimi
+- **Otomatik kalite seçimi** - En iyi kaliteyi otomatik bulur
+- **İnternet toleransı** - İnternet gidince bekler, gelince devam eder
+- **Otomatik yeniden bağlanma** - Yayın kesilirse tekrar dener
+- **Yayın sonu seçenekleri** - Bilgisayarı veya uygulamayı kapatabilirsin
+- **Tema desteği** - Koyu/Açık/Sistem teması seçimi
+- **Kayıt geçmişi** - Tüm kayıtların geçmişini tutar
+- **Güncelleme kontrolü** - Yeni versiyonları otomatik kontrol eder
+- **Çoklu dil desteği** - Türkçe, İngilizce, Almanca, Fransızca ve daha fazlası
+- **Animasyonlu seçenekler** - Hareketli tik işaretleri
 
 ---
 
-## 📁 DOSYALAR HAKKINDA
+## 🐛 HATA BİLDİRİMİ
 
-- `kayit_gecmisi.json` - Kayıt geçmişinizin tutulduğu dosya
-- Bu dosyayı silerseniz geçmişiniz sıfırlanır
-- Programı güncellerken eski JSON dosyanızı yeni klasöre kopyalayarak geçmişinizi koruyabilirsiniz
+Bir sorunla karşılaşırsanız GitHub üzerinden bildirebilirsiniz:
+
+[https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/issues](https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/issues)
 
 ---
 
@@ -155,4 +170,10 @@ MIT License
 
 ---
 
-⭐ Beğendiysen yıldız vermeyi unutma!
+## ⭐ TEŞEKKÜRLER!
+
+Projemi beğendiyseniz GitHub'da **yıldız (⭐) vermeyi** unutmayın!
+
+---
+
+**İyi kayıtlar!** 🎥
