@@ -1,179 +1,129 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-# 🎥 Kick Canlı Yayın Kaydedici 
-=======
-# 🎥 Kick Canlı Yayın Kaydedici v1.1
->>>>>>> e66cfd98db57d8287ba2a4606ecd48600d010b4b
-=======
-# 🎥 Kick Canlı Yayın Kaydedici v1.2
->>>>>>> d4c5d72594c3a945ed3147cd6bc122ec2856c8a1
-=======
-# 🎥 Kick Canlı Yayın Kaydedici 
->>>>>>> 29dfe7562fce49045f82af705a1448a19845a807
-=======
 # 🎥 Kick Canlı Yayın Kaydedici
->>>>>>> d06ad0497d203913f6a6a1b85f2649127ebfee7f
 
-Kick platformundaki canlı yayınları otomatik olarak kaydeden kullanıcı dostu bir program.
+**v1.3** | Windows | Python
+
+Kick platformundaki canlı yayınları otomatik olarak kaydeden, kullanıcı dostu ve modern arayüzlü bir program.
+
+![Version](https://img.shields.io/badge/version-v1.3-brightgreen)
+![Platform](https://img.shields.io/badge/platform-Windows-blue)
+![License](https://img.shields.io/badge/license-MIT-orange)
 
 ---
 
 ## 📥 KURULUM
 
 ### 1. Streamlink'i İndir
-[https://streamlink.github.io/](https://streamlink.github.io/)
-
-<<<<<<< HEAD
-### 2. Kick Kaydedici'yi İndir
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-Sağ taraftaki Releases sayfasından son sürümü indir.
-=======
-### 2. Programı İndir
-Sağ taraftaki Releases sayfasından en son sürümü indir.
->>>>>>> d06ad0497d203913f6a6a1b85f2649127ebfee7f
-
-### 3. Çalıştır
-İndirdiğin `KickCanliYayinKaydedici.exe` dosyasını çalıştır.
-
----
-
-## ⚠ ÖNEMLİ UYARILAR
-
-### 🖥️ CMD Penceresi
-Program çalışırken arkada bir komut ekranı açık kalacaktır. **Bu pencereyi kapatmayın**, aksi halde program durur. İsterseniz **simge durumuna küçültebilirsiniz**.
-
-### 🛡️ Windows Uyarısı
-İlk çalıştırmada Windows tarafından bir uyarı alabilirsiniz. Bu normaldir, güvenle çalıştırabilirsiniz.
-
----
-
-## 🚀 KULLANIM
-
-1. Kanal adını gir
-2. Kayıt klasörü seç
-3. BAŞLAT'a bas
-4. Kayıt başlasın
-
----
-
-## ✨ ÖZELLİKLER
-
-<<<<<<< HEAD
-- Otomatik kayıt (yayın başlayınca başlar, bitince durur)
-- Kayıt süresi ve dosya boyutu gösterimi
-- Otomatik kalite seçimi
-- Kayıt geçmişi
-- İnternet kopması toleransı
-- Yayın bitince bilgisayar kapatma
-- Yayın bitince uygulama kapatma
-- Karanlık/Aydınlık tema
-
----
-
-## ⚖️ LİSANS
-MIT License
-
----
-
-⭐ Beğendiysen yıldız vermeyi unutma!
-=======
-# 🎥 Kick Canlı Yayın Kaydedici v1.1
->>>>>>> e66cfd98db57d8287ba2a4606ecd48600d010b4b
-
-Kick platformundaki canlı yayınları otomatik olarak kaydeden program.
-
-## 📥 KURULUM
-
-### 1. Streamlink'i İndir
-[https://streamlink.github.io/](https://streamlink.github.io/)
+Programın çalışması için **Streamlink** gereklidir.  
+👉 [https://streamlink.github.io/](https://streamlink.github.io/)
 
 ### 2. Kick Kaydedici'yi İndir
-=======
->>>>>>> e66cfd98db57d8287ba2a4606ecd48600d010b4b
-=======
->>>>>>> d4c5d72594c3a945ed3147cd6bc122ec2856c8a1
-=======
->>>>>>> 29dfe7562fce49045f82af705a1448a19845a807
-Sağ taraftaki Releases sayfasından son sürümü (**KickCanliYayinKaydedici_v1.1.rar**) indir.
+Sağ taraftaki **Releases** sayfasından son sürümü indir.
 
 ### 3. RAR'dan Çıkar
 İndirdiğin RAR dosyasını WinRAR veya 7-Zip ile aç. İçinden çıkanlar:
-<<<<<<< HEAD
-- `KickCanliYayinKaydedici_v1.1.exe` - Programın kendisi
-- `kayit_gecmisi.json` - Kayıt geçmişi dosyası (otomatik oluşur/güncellenir)
-
-### 4. Çalıştır
-`KickCanliYayinKaydedici_v1.1.exe` dosyasını çalıştır.
-=======
 - `KickCanliYayinKaydedici.exe` - Programın kendisi
-- `kayit_gecmisi.json` - Kayıt geçmişi dosyası (otomatik oluşur/güncellenir)
+- `kayit_gecmisi.json` - Kayıt geçmişi (otomatik oluşur)
 
 ### 4. Çalıştır
 `KickCanliYayinKaydedici.exe` dosyasını çalıştır.
->>>>>>> 29dfe7562fce49045f82af705a1448a19845a807
 
 ---
 
 ## ⚠ ÖNEMLİ UYARILAR
 
 ### 🖥️ CMD Penceresi
-Program çalışırken arkada bir komut ekranı açık kalacaktır. **Bu pencereyi kapatmayın**, aksi halde program durur. İsterseniz **simge durumuna küçültebilirsiniz**.
+Program çalışırken arkada bir komut ekranı açık kalır. **Bu pencereyi kapatmayın!**  
+İsterseniz simge durumuna küçültebilirsiniz.
 
 ### 🛡️ Windows Uyarısı
-İlk çalıştırmada Windows tarafından bir uyarı alabilirsiniz. Bu normaldir, güvenle çalıştırabilirsiniz.
+İlk çalıştırmada Windows SmartScreen uyarısı alabilirsiniz. Bu normaldir, **"Diğer bilgiler" → "Yine de çalıştır"** seçeneğini kullanabilirsiniz.
 
 ---
 
 ## 🚀 KULLANIM
 
-1. Kanal adını gir
-2. Klasör seç
-3. **TEK BUTON** ile kaydı başlat/durdur (butonun rengi ve yazısı değişir)
-4. Kayıt başlasın
+| Adım | Açıklama |
+|------|----------|
+| 1 | Kanal adını girin (örnek: `j0mada`) |
+| 2 | Kayıtların kaydedileceği klasörü seçin |
+| 3 | **BAŞLAT** butonuna tıklayın |
+| 4 | Program yayını bekler, başlayınca otomatik kaydeder |
+
+> 💡 **İpucu:** Aynı buton kayıt sırasında **DURDUR** olur. Tek buton ile başlatıp durdurabilirsiniz.
 
 ---
 
 ## ✨ ÖZELLİKLER
 
-=======
->>>>>>> d06ad0497d203913f6a6a1b85f2649127ebfee7f
-- **Tek buton sistemi** - BAŞLAT ve DURDUR aynı butonda
-- **Otomatik kayıt** - Yayın başlayınca başlar, bitince durur
-- **Anlık bilgi** - Kayıt süresi ve dosya boyutu gösterimi
-- **Otomatik kalite seçimi** - En iyi kaliteyi otomatik bulur
-- **İnternet toleransı** - İnternet gidince bekler, gelince devam eder
-- **Otomatik yeniden bağlanma** - Yayın kesilirse tekrar dener
-- **Yayın sonu seçenekleri** - Bilgisayarı veya uygulamayı kapatabilirsin
-- **Tema desteği** - Koyu/Açık/Sistem teması seçimi
-- **Kayıt geçmişi** - Tüm kayıtların geçmişini tutar
-- **Güncelleme kontrolü** - Yeni versiyonları otomatik kontrol eder
-- **Çoklu dil desteği** - Türkçe, İngilizce, Almanca, Fransızca ve daha fazlası
-- **Animasyonlu seçenekler** - Hareketli tik işaretleri
+### 🎬 KAYIT ÖZELLİKLERİ
+- ✅ **Tek buton sistemi** - BAŞLAT / DURDUR aynı butonda
+- ✅ **Otomatik kayıt** - Yayın başlayınca başlar, bitince durur
+- ✅ **Anlık bilgi** - Kayıt süresi ve dosya boyutu gösterimi
+- ✅ **Otomatik kalite seçimi** - Mevcut en iyi kaliteyi bulur
+- ✅ **İnternet kopması toleransı** - Bağlantı gelince devam eder
+- ✅ **Yayın bitince bilgisayarı kapatma**
+- ✅ **Yayın bitince uygulamayı kapatma**
+
+### ⭐ PROFİLLER
+- ✅ **Kanal kaydetme** - Sık kullandığın kanalları profillere ekle
+- ✅ **Klasör desteği** - Her kanal için farklı kayıt klasörü
+- ✅ **Canlı yayın göstergesi** - 🟢 CANLI / 🔴 YAYINDA DEĞİL
+- ✅ **Tek tıkla seçme** - Profile tıkla, kanal ve klasör otomatik doldurulsun
+- ✅ **Seçili profil vurgusu** - Aktif profil yeşil çerçeve ile belirgin
+
+### 📅 PLANLAYICI
+- ✅ **Zamanlı kayıt** - Belirlediğin saatte otomatik kayıt başlat
+- ✅ **Çoklu gün seçimi** - Hangi günlerde çalışacağını seç
+- ✅ **Plan silme** - İptal etmek istediğin planları kaldır
+
+### 🌍 DİL DESTEĞİ
+- ✅ **11 dil** - Türkçe, English, Deutsch, Français, Español, Italiano, Português, Русский, 日本語, 한국어, 中文
+- ✅ **Otomatik algılama** - Sistem dilini algılar, o dilde başlar
+
+### 🎨 ARAYÜZ
+- ✅ **Modern tasarım** - Yuvarlak köşeler, kart görünümü
+- ✅ **Animasyonlu butonlar** - Fare üzerine gelince renk değiştirir
+- ✅ **Hover efektleri** - Tüm butonlarda görsel geri bildirim
+- ✅ **Karanlık / Açık tema** - Sistem temasını takip eder
+- ✅ **Renkli durum çubuğu** - Kayıt durumuna göre renk değiştirir
+
+### 📜 DİĞER
+- ✅ **Kayıt geçmişi** - Daha önce kaydettiğin yayınları listeler
+- ✅ **Otomatik güncelleme kontrolü** - Yeni sürüm var mı kontrol eder
+- ✅ **Detaylı log sistemi** - Tüm işlemleri kaydeder
 
 ---
 
-## 🐛 HATA BİLDİRİMİ
-
-Bir sorunla karşılaşırsanız GitHub üzerinden bildirebilirsiniz:
-
-[https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/issues](https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/issues)
-
----
-
-## ⚖️ LİSANS
-MIT License
+## 📁 DOSYA YAPISI
+KickCanliYayinKaydedici.exe
+profiller.json
+kayit_gecmisi.json
+planlar.json
 
 ---
 
-## ⭐ TEŞEKKÜRLER!
+## ❓ SIK SORULAN SORULAR
 
-Projemi beğendiyseniz GitHub'da **yıldız (⭐) vermeyi** unutmayın!
+### Program neden "Streamlink bulunamadı" hatası veriyor?
+Streamlink bilgisayarınızda kurulu değil. [Buradan](https://streamlink.github.io/) indirip kurun.
+
+### CMD penceresini kapatırsam ne olur?
+Kayıt durur ve program kapanır. Bu pencereyi **simge durumuna küçültmeniz** önerilir.
+
+### 1080p seçmeme rağmen neden daha düşük kalitede kaydediyor?
+Yayıncı 1080p yayın yapmıyor olabilir. Program otomatik olarak mevcut en yüksek kaliteyi bulur ve onu kullanır.
+
+### Profillerdeki 🟢 ve 🔴 ne anlama geliyor?
+- 🟢 **CANLI** - Kanal şu anda yayında
+- 🔴 **YAYINDA DEĞİL** - Kanal yayında değil
+
+### Kayıtlar nereye kaydediliyor?
+Program, seçtiğiniz ana klasör içinde **kanal_adı** adında bir alt klasör oluşturur. Dosya adı formatı: `kanal_2024-01-01_12-30-00.mp4`
 
 ---
 
-**İyi kayıtlar!** 🎥
+## 🔧 GELİŞTİRİCİLER İÇİN
+
+### Gereksinimler
+```bash
+pip install customtkinter pillow requests schedule streamlink
