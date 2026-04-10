@@ -10,7 +10,7 @@ import sys
 import ctypes
 import json
 import webbrowser
-from PIL import Image, ImageTk
+from PIL import Image
 import re
 import schedule
 import locale
@@ -38,12 +38,43 @@ def detect_system_language():
 
 # ---------- VERSİYON ----------
 VERSION = "v1.3"
-GITHUB_USERNAME = "erneman26"
-REPO_NAME = "Kick-Canli-Yayin-Kaydedici"
-VERSION_CHECK_URL = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{REPO_NAME}/main/version.json"
 
-# ---------- PROFİL DOSYASI ----------
-PROFILES_FILE = "profiller.json"
+# ---------- KONSOL RENKLERİ ----------
+class Renkler:
+    KIRMIZI = '\033[91m'
+    YESIL = '\033[92m'
+    SARI = '\033[93m'
+    MAVI = '\033[94m'
+    MOR = '\033[95m'
+    TURKUAZ = '\033[96m'
+    BEYAZ = '\033[97m'
+    BOLD = '\033[1m'
+    SON = '\033[0m'
+
+# ---------- KONSOL AÇILIŞ MESAJI ----------
+print(Renkler.BOLD + Renkler.TURKUAZ + "\n" + "="*70)
+print(f"                    KICK CANLI YAYIN KAYDEDİCİ {VERSION}")
+print("="*70)
+print(Renkler.SARI + "╔════════════════════════════════════════════════════════╗")
+print("║     ⚠  BU PENCEREYİ KAPATMAYIN!  ⚠                       ║")
+print("║                                                          ║")
+print("║     Bu siyah pencere (CMD) programın çalışması için      ║")
+print("║     gereklidir. Kapatırsanız KAYIT DURUR!               ║")
+print("╚════════════════════════════════════════════════════════╝" + Renkler.SON)
+print(Renkler.BEYAZ + "-"*70)
+print("▶ CMD'yi simge durumuna küçültebilirsiniz")
+print("▶ Programı kapatmak için arayüzdeki X butonunu kullanın")
+print("▶ Hata durumunda 'hata_log.txt' dosyasını kontrol edin")
+print(Renkler.TURKUAZ + "="*70 + Renkler.SON)
+print("")
+print(Renkler.YESIL + "Program başlatılıyor... Lütfen bekleyin." + Renkler.SON)
+print("")
+
+# Konsol başlığını değiştir
+try:
+    ctypes.windll.kernel32.SetConsoleTitleW(f"Kick Canlı Yayın Kaydedici {VERSION}")
+except:
+    pass
 
 # ---------- DİL DOSYASI (11 DİL) ----------
 LANGUAGES = {
@@ -743,11 +774,37 @@ LANGUAGES = {
 }
 
 current_lang = detect_system_language()
+
+# Kaydedilmiş dili yükle
+try:
+    with open("language.json", "r", encoding="utf-8") as f:
+        saved = json.load(f)
+        if saved.get("language") in LANGUAGES:
+            current_lang = saved.get("language")
+            print(f"💾 Kaydedilmiş dil yüklendi: {current_lang}")
+except:
+    pass
+
 if current_lang not in LANGUAGES:
     current_lang = "Türkçe"
 
 def _(key):
     return LANGUAGES[current_lang].get(key, LANGUAGES["Türkçe"].get(key, key))
+
+# ---------- KONSOL LOG FONKSİYONU ----------
+def console_log(msg, renk="beyaz"):
+    now = datetime.datetime.now().strftime("%H:%M:%S")
+    renk_kodlari = {
+        "green": Renkler.YESIL,
+        "red": Renkler.KIRMIZI,
+        "orange": Renkler.SARI,
+        "cyan": Renkler.TURKUAZ,
+        "white": Renkler.BEYAZ,
+        "blue": Renkler.MAVI,
+        "purple": Renkler.MOR
+    }
+    cmd_renk = renk_kodlari.get(renk, Renkler.BEYAZ)
+    print(f"{cmd_renk}[{now}] {msg}{Renkler.SON}")
 
 # ---------- MODERN ANİMASYONLU BUTON SINIFI ----------
 class AnimatedButton(ctk.CTkButton):
@@ -773,12 +830,11 @@ class CardFrame(ctk.CTkFrame):
         super().__init__(master, corner_radius=15, border_width=0, **kwargs)
         self.configure(fg_color=("#2b2b2b", "#1e1e1e"))
 
-# ---------- ANA UYGULAMA SINIFI ----------
+# ---------- ANA UYGULAMA ----------
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        # Pencere ayarları
         self.title(f"{_('app_title')} {VERSION}")
         self.geometry("1000x950")
         self.minsize(900, 800)
@@ -794,7 +850,6 @@ class App(ctk.CTk):
         self.channel_profiles = []
         self.active_profile_channel = None
         self.scheduled_tasks = []
-        self.scheduler_running = False
         
         # İkon ayarı
         self.set_app_icon()
@@ -807,17 +862,11 @@ class App(ctk.CTk):
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
         self.main_container.pack(fill="both", expand=True, padx=15, pady=15)
         
-        # Üst bar (başlık)
+        # Üst bar
         self.create_title_bar()
         
         # Tabview
         self.create_tabview()
-        
-        # Profilleri yükle
-        self.load_profiles_from_file()
-        
-        # Planlayıcıyı başlat
-        self.start_scheduler()
         
         # Timer güncelleme
         self.update_timer()
@@ -826,52 +875,50 @@ class App(ctk.CTk):
         # Güncelleme kontrolü
         threading.Thread(target=self.check_for_updates, daemon=True).start()
         
-        # Başlangıç logu
+        # Profil listesini her 30 saniyede bir yenile
+        def auto_refresh_profiles():
+            self.update_profiles_list()
+            self.after(30000, auto_refresh_profiles)
+        auto_refresh_profiles()
+        
+        # Kullanıcı verilerini yükle
+        self.load_user_data()
+        
+        # Başlangıç logları
         self.log(_("lang_detected").format(current_lang), "cyan")
         self.log(f"🎥 {_('app_title')} {VERSION} {_('log_start')}", "green")
+        self.log("="*50, "white")
+        self.log(f"✅ Tek buton sistemi aktif", "purple")
+        self.log(f"✅ Otomatik kalite seçimi", "cyan")
+        self.log(f"✅ 11 dil desteği!", "cyan")
         self.log(f"👉 {_('log_instruction')}", "cyan")
         
     def create_title_bar(self):
-        """Modern başlık çubuğu"""
         title_bar = ctk.CTkFrame(self.main_container, height=60, corner_radius=15, fg_color=("#1a1a1a", "#0d0d0d"))
         title_bar.pack(fill="x", pady=(0, 15))
         title_bar.pack_propagate(False)
         
-        # Logo ve başlık
-        title_label = ctk.CTkLabel(
-            title_bar, 
-            text=f"🎬 {_('app_title')} {VERSION}", 
-            font=ctk.CTkFont(size=20, weight="bold"),
-            text_color="#4CAF50"
-        )
-        title_label.pack(side="left", padx=20, pady=15)
+        self.title_label = ctk.CTkLabel(title_bar, text=f"🎬 {_('app_title')} {VERSION}", font=ctk.CTkFont(size=20, weight="bold"), text_color="#4CAF50")
+        self.title_label.pack(side="left", padx=20, pady=15)
         
-        # Durum etiketi
-        self.status_label = ctk.CTkLabel(
-            title_bar,
-            text=f"● {_('status_ready')}",
-            font=ctk.CTkFont(size=13),
-            text_color="gray"
-        )
+        self.status_label = ctk.CTkLabel(title_bar, text=f"● {_('status_ready')}", font=ctk.CTkFont(size=13), text_color="gray")
         self.status_label.pack(side="right", padx=20)
         
     def create_tabview(self):
-        """Sekmeli arayüz"""
         self.tabview = ctk.CTkTabview(self.main_container, corner_radius=15)
         self.tabview.pack(fill="both", expand=True)
         
-        # Sekmeleri ekle
-        self.tabview.add("KAYIT")
-        self.tabview.add("PLANLAYICI")
-        self.tabview.add("PROFİLLER")
-        self.tabview.add("AYARLAR")
-        self.tabview.add("LOGLAR")
+        # Sekmeleri dinamik isimlerle ekle
+        self.tabview.add(_("tab_record"))
+        self.tabview.add(_("tab_scheduler"))
+        self.tabview.add(_("tab_profiles"))
+        self.tabview.add(_("tab_settings"))
+        self.tabview.add(_("tab_logs"))
         
         # Sekme stilleri
-        for tab_name in ["KAYIT", "PLANLAYICI", "PROFİLLER", "AYARLAR", "LOGLAR"]:
+        for tab_name in [_("tab_record"), _("tab_scheduler"), _("tab_profiles"), _("tab_settings"), _("tab_logs")]:
             self.tabview.tab(tab_name).configure(fg_color=("#2d2d2d", "#1e1e1e"))
         
-        # Her sekmeyi oluştur
         self.create_record_tab()
         self.create_scheduler_tab()
         self.create_profiles_tab()
@@ -879,37 +926,28 @@ class App(ctk.CTk):
         self.create_logs_tab()
         
     def create_record_tab(self):
-        """Kayıt sekmesi - modern tasarım"""
-        record_tab = self.tabview.tab("KAYIT")
-        
-        # Ana kart
+        record_tab = self.tabview.tab(_("tab_record"))
         main_card = CardFrame(record_tab)
         main_card.pack(fill="both", expand=True, padx=20, pady=20)
         
         # Kanal girişi
-        channel_label = ctk.CTkLabel(main_card, text="📺 KANAL ADI", font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        channel_label.pack(anchor="w", padx=30, pady=(20, 5))
+        self.channel_label = ctk.CTkLabel(main_card, text="📺 KANAL ADI", font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
+        self.channel_label.pack(anchor="w", padx=30, pady=(20, 5))
         
         self.channel_entry = ctk.CTkEntry(main_card, placeholder_text=_("channel_placeholder"), height=45, font=ctk.CTkFont(size=14), corner_radius=10)
         self.channel_entry.pack(fill="x", padx=30, pady=(0, 15))
         
-        # Kalite seçimi
-        quality_label = ctk.CTkLabel(main_card, text="⚙ KALİTE", font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        quality_label.pack(anchor="w", padx=30, pady=(0, 5))
+        # Kalite
+        self.quality_label = ctk.CTkLabel(main_card, text="⚙ KALİTE", font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
+        self.quality_label.pack(anchor="w", padx=30, pady=(0, 5))
         
-        self.quality_menu = ctk.CTkOptionMenu(
-            main_card, 
-            values=[_("quality_auto"), "best", "1080p", "720p", "480p", "360p"],
-            height=40,
-            corner_radius=10,
-            font=ctk.CTkFont(size=13)
-        )
+        self.quality_menu = ctk.CTkOptionMenu(main_card, values=[_("quality_auto"), "best", "1080p", "720p", "480p"], height=40, corner_radius=10)
         self.quality_menu.set(_("quality_auto"))
         self.quality_menu.pack(fill="x", padx=30, pady=(0, 15))
         
-        # Klasör seçimi
-        folder_label = ctk.CTkLabel(main_card, text="📁 KAYIT KLASÖRÜ", font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        folder_label.pack(anchor="w", padx=30, pady=(0, 5))
+        # Klasör
+        self.folder_label = ctk.CTkLabel(main_card, text="📁 KAYIT KLASÖRÜ", font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
+        self.folder_label.pack(anchor="w", padx=30, pady=(0, 5))
         
         folder_frame = ctk.CTkFrame(main_card, fg_color="transparent")
         folder_frame.pack(fill="x", padx=30, pady=(0, 15))
@@ -917,7 +955,7 @@ class App(ctk.CTk):
         self.folder_entry = ctk.CTkEntry(folder_frame, placeholder_text=_("folder_placeholder"), height=40, corner_radius=10)
         self.folder_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
-        self.folder_button = AnimatedButton(folder_frame, text=_("folder_select"), width=80, height=40, corner_radius=10, fg_color="#2196F3", hover_color="#1976D2")
+        self.folder_button = AnimatedButton(folder_frame, text=_("folder_select"), width=80, height=40, corner_radius=10, fg_color="#2196F3")
         self.folder_button.configure(command=self.select_folder)
         self.folder_button.pack(side="right")
         
@@ -928,22 +966,13 @@ class App(ctk.CTk):
         self.shutdown_var = ctk.BooleanVar(value=False)
         self.close_app_var = ctk.BooleanVar(value=False)
         
-        self.shutdown_check = ctk.CTkCheckBox(options_frame, text=_("shutdown_option"), variable=self.shutdown_var, command=self.on_shutdown_toggle, font=ctk.CTkFont(size=12))
+        self.shutdown_check = ctk.CTkCheckBox(options_frame, text=_("shutdown_option"), variable=self.shutdown_var, command=self.on_shutdown_toggle)
         self.shutdown_check.pack(anchor="w", pady=5)
-        
-        self.close_app_check = ctk.CTkCheckBox(options_frame, text=_("close_app_option"), variable=self.close_app_var, command=self.on_close_app_toggle, font=ctk.CTkFont(size=12))
+        self.close_app_check = ctk.CTkCheckBox(options_frame, text=_("close_app_option"), variable=self.close_app_var, command=self.on_close_app_toggle)
         self.close_app_check.pack(anchor="w", pady=5)
         
         # Ana buton
-        self.toggle_button = AnimatedButton(
-            main_card, 
-            text=_("button_start"), 
-            height=60, 
-            corner_radius=15,
-            font=ctk.CTkFont(size=18, weight="bold"),
-            fg_color="#4CAF50",
-            hover_color="#45a049"
-        )
+        self.toggle_button = AnimatedButton(main_card, text=_("button_start"), height=60, corner_radius=15, font=ctk.CTkFont(size=18, weight="bold"), fg_color="#4CAF50")
         self.toggle_button.configure(command=self.toggle_record)
         self.toggle_button.pack(fill="x", padx=30, pady=20)
         
@@ -954,45 +983,41 @@ class App(ctk.CTk):
         
         self.timer_label = ctk.CTkLabel(info_bar, text=f"{_('timer')} 00:00:00", font=ctk.CTkFont(size=14))
         self.timer_label.pack(side="left", padx=15, pady=10)
-        
         self.size_label = ctk.CTkLabel(info_bar, text=f"{_('filesize')} -", font=ctk.CTkFont(size=14))
         self.size_label.pack(side="right", padx=15, pady=10)
         
         # Alt butonlar
-        bottom_btn_frame = ctk.CTkFrame(main_card, fg_color="transparent")
-        bottom_btn_frame.pack(fill="x", padx=30, pady=(0, 20))
+        bottom_frame = ctk.CTkFrame(main_card, fg_color="transparent")
+        bottom_frame.pack(fill="x", padx=30, pady=(0, 20))
         
-        self.history_button = AnimatedButton(bottom_btn_frame, text=_("button_history"), width=120, height=40, corner_radius=10, fg_color="#9C27B0", hover_color="#7B1FA2")
+        self.history_button = AnimatedButton(bottom_frame, text=_("button_history"), width=120, height=40, corner_radius=10, fg_color="#9C27B0")
         self.history_button.configure(command=self.show_history)
         self.history_button.pack(side="left", padx=5)
         
-        self.update_button = AnimatedButton(bottom_btn_frame, text=_("button_update"), width=120, height=40, corner_radius=10, fg_color="#FF9800", hover_color="#F57C00")
+        self.update_button = AnimatedButton(bottom_frame, text=_("button_update"), width=120, height=40, corner_radius=10, fg_color="#FF9800")
         self.update_button.configure(command=lambda: threading.Thread(target=self.check_for_updates, daemon=True).start())
         self.update_button.pack(side="left", padx=5)
         
     def create_scheduler_tab(self):
-        """Planlayıcı sekmesi"""
-        scheduler_tab = self.tabview.tab("PLANLAYICI")
-        
+        scheduler_tab = self.tabview.tab(_("tab_scheduler"))
         main_card = CardFrame(scheduler_tab)
         main_card.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Yeni plan ekleme alanı
         add_frame = ctk.CTkFrame(main_card, fg_color="transparent")
         add_frame.pack(fill="x", padx=20, pady=20)
         
-        # Kanal
-        ctk.CTkLabel(add_frame, text=_("scheduler_channel"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50").pack(anchor="w")
+        self.scheduler_channel_label = ctk.CTkLabel(add_frame, text=_("scheduler_channel"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
+        self.scheduler_channel_label.pack(anchor="w")
         self.scheduler_channel_entry = ctk.CTkEntry(add_frame, height=40, corner_radius=10)
         self.scheduler_channel_entry.pack(fill="x", pady=(0, 10))
         
-        # Saat
-        ctk.CTkLabel(add_frame, text=_("scheduler_time"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50").pack(anchor="w")
+        self.scheduler_time_label = ctk.CTkLabel(add_frame, text=_("scheduler_time"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
+        self.scheduler_time_label.pack(anchor="w")
         self.scheduler_time_entry = ctk.CTkEntry(add_frame, height=40, corner_radius=10, placeholder_text="14:30")
         self.scheduler_time_entry.pack(fill="x", pady=(0, 10))
         
-        # Günler
-        ctk.CTkLabel(add_frame, text=_("scheduler_days"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50").pack(anchor="w")
+        self.scheduler_days_label = ctk.CTkLabel(add_frame, text=_("scheduler_days"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
+        self.scheduler_days_label.pack(anchor="w")
         
         days_frame = ctk.CTkFrame(add_frame, fg_color="transparent")
         days_frame.pack(fill="x", pady=5)
@@ -1001,10 +1026,9 @@ class App(ctk.CTk):
         days_list = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
         for i, day in enumerate(days_list):
             self.day_vars[day] = ctk.BooleanVar(value=False)
-            cb = ctk.CTkCheckBox(days_frame, text=day, variable=self.day_vars[day], font=ctk.CTkFont(size=11))
+            cb = ctk.CTkCheckBox(days_frame, text=day, variable=self.day_vars[day])
             cb.grid(row=i//3, column=i%3, padx=10, pady=5, sticky="w")
         
-        # Butonlar
         btn_frame = ctk.CTkFrame(add_frame, fg_color="transparent")
         btn_frame.pack(fill="x", pady=15)
         
@@ -1020,38 +1044,35 @@ class App(ctk.CTk):
         self.scheduler_stop_button.configure(command=self.stop_current_recording)
         self.scheduler_stop_button.pack(side="left", padx=5)
         
-        # Plan listesi
-        ctk.CTkLabel(main_card, text=_("scheduler_list"), font=ctk.CTkFont(size=14, weight="bold"), text_color="#4CAF50").pack(anchor="w", padx=20, pady=(10, 5))
+        self.scheduler_list_title = ctk.CTkLabel(main_card, text=_("scheduler_list"), font=ctk.CTkFont(size=14, weight="bold"), text_color="#4CAF50")
+        self.scheduler_list_title.pack(anchor="w", padx=20, pady=(10, 5))
         
         self.scheduler_listbox = ctk.CTkScrollableFrame(main_card, height=250, corner_radius=10)
         self.scheduler_listbox.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-        
         self.scheduler_selected_var = ctk.IntVar(value=-1)
         
     def create_profiles_tab(self):
-        """Profiller sekmesi - tıklayarak seç/çıkar"""
-        profiles_tab = self.tabview.tab("PROFİLLER")
-        
+        profiles_tab = self.tabview.tab(_("tab_profiles"))
         main_card = CardFrame(profiles_tab)
         main_card.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Yeni profil ekleme
         add_frame = ctk.CTkFrame(main_card, fg_color="transparent")
         add_frame.pack(fill="x", padx=20, pady=20)
         
-        ctk.CTkLabel(add_frame, text=_("profile_channel"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50").pack(anchor="w")
+        self.profile_channel_label = ctk.CTkLabel(add_frame, text=_("profile_channel"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
+        self.profile_channel_label.pack(anchor="w")
         self.profile_channel_entry = ctk.CTkEntry(add_frame, height=40, corner_radius=10)
         self.profile_channel_entry.pack(fill="x", pady=(0, 10))
         
-        ctk.CTkLabel(add_frame, text=_("profile_folder"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50").pack(anchor="w")
+        self.profile_folder_label = ctk.CTkLabel(add_frame, text=_("profile_folder"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
+        self.profile_folder_label.pack(anchor="w")
+        folder_frame = ctk.CTkFrame(add_frame, fg_color="transparent")
+        folder_frame.pack(fill="x", pady=(0, 10))
         
-        profile_folder_frame = ctk.CTkFrame(add_frame, fg_color="transparent")
-        profile_folder_frame.pack(fill="x", pady=(0, 10))
-        
-        self.profile_folder_entry = ctk.CTkEntry(profile_folder_frame, placeholder_text=_("folder_placeholder"), height=40, corner_radius=10)
+        self.profile_folder_entry = ctk.CTkEntry(folder_frame, placeholder_text=_("folder_placeholder"), height=40, corner_radius=10)
         self.profile_folder_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
-        self.profile_folder_button = AnimatedButton(profile_folder_frame, text=_("folder_select"), width=80, height=40, corner_radius=10, fg_color="#2196F3")
+        self.profile_folder_button = AnimatedButton(folder_frame, text=_("folder_select"), width=80, height=40, corner_radius=10, fg_color="#2196F3")
         self.profile_folder_button.configure(command=self.select_profile_folder)
         self.profile_folder_button.pack(side="right")
         
@@ -1059,13 +1080,12 @@ class App(ctk.CTk):
         self.profile_save_button.configure(command=self.add_profile)
         self.profile_save_button.pack(fill="x", pady=10)
         
-        # Profil listesi
-        ctk.CTkLabel(main_card, text=_("profiles_title"), font=ctk.CTkFont(size=14, weight="bold"), text_color="#4CAF50").pack(anchor="w", padx=20, pady=(10, 5))
+        self.profiles_title = ctk.CTkLabel(main_card, text=_("profiles_title"), font=ctk.CTkFont(size=14, weight="bold"), text_color="#4CAF50")
+        self.profiles_title.pack(anchor="w", padx=20, pady=(10, 5))
         
         self.profiles_listbox = ctk.CTkScrollableFrame(main_card, height=300, corner_radius=10)
         self.profiles_listbox.pack(fill="both", expand=True, padx=20, pady=(0, 10))
         
-        # Sil butonu
         btn_frame = ctk.CTkFrame(main_card, fg_color="transparent")
         btn_frame.pack(fill="x", padx=20, pady=(0, 20))
         
@@ -1074,33 +1094,28 @@ class App(ctk.CTk):
         self.profiles_delete_button.pack(side="left", padx=5)
         
     def create_settings_tab(self):
-        """Ayarlar sekmesi"""
-        settings_tab = self.tabview.tab("AYARLAR")
-        
+        settings_tab = self.tabview.tab(_("tab_settings"))
         main_card = CardFrame(settings_tab)
         main_card.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Tema
         theme_frame = ctk.CTkFrame(main_card, fg_color="transparent")
         theme_frame.pack(fill="x", padx=30, pady=20)
-        
-        ctk.CTkLabel(theme_frame, text=_("theme_label"), font=ctk.CTkFont(size=13, weight="bold")).pack(side="left", padx=10)
+        self.theme_label = ctk.CTkLabel(theme_frame, text=_("theme_label"), font=ctk.CTkFont(size=13, weight="bold"))
+        self.theme_label.pack(side="left", padx=10)
         self.theme_menu = ctk.CTkOptionMenu(theme_frame, values=[_("theme_dark"), _("theme_light"), _("theme_system")], width=120, corner_radius=8)
         self.theme_menu.set(_("theme_dark"))
         self.theme_menu.configure(command=self.change_theme)
         self.theme_menu.pack(side="left", padx=10)
         
-        # Dil
         lang_frame = ctk.CTkFrame(main_card, fg_color="transparent")
         lang_frame.pack(fill="x", padx=30, pady=20)
-        
-        ctk.CTkLabel(lang_frame, text=_("language_label"), font=ctk.CTkFont(size=13, weight="bold")).pack(side="left", padx=10)
+        self.language_label = ctk.CTkLabel(lang_frame, text=_("language_label"), font=ctk.CTkFont(size=13, weight="bold"))
+        self.language_label.pack(side="left", padx=10)
         self.lang_menu = ctk.CTkOptionMenu(lang_frame, values=list(LANGUAGES.keys()), width=150, corner_radius=8)
         self.lang_menu.set(current_lang)
         self.lang_menu.configure(command=self.change_language)
         self.lang_menu.pack(side="left", padx=10)
         
-        # Bilgi kartı
         info_card = ctk.CTkFrame(main_card, corner_radius=10, fg_color=("#1a1a1a", "#0d0d0d"))
         info_card.pack(pady=30, padx=30, fill="x")
         
@@ -1115,38 +1130,41 @@ class App(ctk.CTk):
     ║      GitHub: github.com/erneman26        ║
     ╚══════════════════════════════════════════╝
         """
-        
         info_label = ctk.CTkLabel(info_card, text=info_text, font=ctk.CTkFont(size=12, family="Consolas"), justify="left", text_color="#4CAF50")
         info_label.pack(pady=20, padx=20)
         
     def create_logs_tab(self):
-        """Loglar sekmesi"""
-        logs_tab = self.tabview.tab("LOGLAR")
-        
+        logs_tab = self.tabview.tab(_("tab_logs"))
         self.log_box = ctk.CTkTextbox(logs_tab, corner_radius=10, font=ctk.CTkFont(size=12))
         self.log_box.pack(fill="both", expand=True, padx=20, pady=20)
         self.log_box.configure(state="disabled")
         
     # ---------- FONKSİYONLAR ----------
-    
     def log(self, msg, color="white"):
         now = datetime.datetime.now().strftime("%H:%M:%S")
-        self.log_box.configure(state="normal")
-        self.log_box.insert("end", f"[{now}] {msg}\n", color)
-        self.log_box.tag_config(color, foreground=color)
-        self.log_box.configure(state="disabled")
-        self.log_box.see("end")
-        print(f"[{now}] {msg}")
-        
+        console_log(msg, color)
+        try:
+            self.log_box.configure(state="normal")
+            self.log_box.insert("end", f"[{now}] {msg}\n", color)
+            self.log_box.tag_config(color, foreground=color)
+            self.log_box.configure(state="disabled")
+            self.log_box.see("end")
+        except:
+            pass
+            
     def set_status(self, text, color):
-        self.status_label.configure(text=f"● {text}", text_color=color)
-        
+        try:
+            self.status_label.configure(text=f"● {text}", text_color=color)
+        except:
+            pass
+            
     def select_folder(self):
         folder = filedialog.askdirectory()
         if folder:
             self.folder_entry.delete(0, "end")
             self.folder_entry.insert(0, folder)
             self.log(f"📁 Klasör seçildi: {folder}", "green")
+            self.save_user_data()
             
     def select_profile_folder(self):
         folder = filedialog.askdirectory()
@@ -1162,6 +1180,7 @@ class App(ctk.CTk):
             self.log(_("shutdown_active"), "purple")
         else:
             self.shutdown_after = False
+        self.save_user_data()
             
     def on_close_app_toggle(self):
         if self.close_app_var.get():
@@ -1170,7 +1189,214 @@ class App(ctk.CTk):
             self.log(_("close_app_active"), "purple")
         else:
             self.close_app_after = False
+        self.save_user_data()
+        
+    def shutdown_computer(self):
+        self.log(f"⚠ Bilgisayar 30 saniye sonra KAPANACAK!", "purple")
+        self.log(f"⏰ Kapatmayı iptal etmek için DURDUR butonuna basın!", "orange")
+        
+        for i in range(30, 0, -1):
+            if not self.shutdown_after or not self.was_recording:
+                self.log(f"✅ Bilgisayar kapatma iptal edildi!", "green")
+                return
+            if i % 10 == 0 or i <= 5:
+                self.log(f"⏳ Kapatmaya {i} saniye kaldı...", "orange")
+            time.sleep(1)
+        
+        if self.shutdown_after and self.was_recording:
+            self.log(f"💻 Bilgisayar kapatılıyor...", "purple")
+            os.system("shutdown /s /t 5")
             
+    def close_app(self):
+        self.log(f"⚠ Uygulama 10 saniye sonra KAPANACAK!", "purple")
+        self.log(f"⏰ Kapatmayı iptal etmek için DURDUR butonuna basın!", "orange")
+        
+        for i in range(10, 0, -1):
+            if not self.close_app_after or not self.was_recording:
+                self.log(f"✅ Uygulama kapatma iptal edildi!", "green")
+                return
+            if i <= 3:
+                self.log(f"⏳ Uygulama {i} saniye sonra kapanacak...", "orange")
+            time.sleep(1)
+        
+        if self.close_app_after and self.was_recording:
+            self.log(f"👋 Uygulama kapatılıyor...", "purple")
+            self.quit()
+            os._exit(0)
+            
+    def check_live_simple(self, channel):
+        try:
+            url = f"https://kick.com/api/v2/channels/{channel}"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "application/json",
+                "Referer": "https://kick.com/"
+            }
+            r = requests.get(url, headers=headers, timeout=8)
+            
+            if r.status_code == 200:
+                data = r.json()
+                if "livestream" in data and data["livestream"] is not None:
+                    if data["livestream"].get("is_live") == True:
+                        return True
+                if data.get("is_live") == True:
+                    return True
+            
+            url = f"https://kick.com/{channel}"
+            r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+            if r.status_code == 200:
+                html = r.text
+                if '"is_live":true' in html or 'isLive":true' in html:
+                    return True
+                if 'data-testid="live-badge"' in html or 'Live now' in html:
+                    return True
+            
+            result = subprocess.run(
+                ["streamlink", f"https://kick.com/{channel}"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if "Available streams:" in result.stdout:
+                return True
+                
+            return False
+            
+        except Exception as e:
+            console_log(f"⚠ Canlı kontrol hatası ({channel}): {e}", "orange")
+            return False
+            
+    def find_best_quality(self, channel, selected_quality=None):
+        try:
+            result = subprocess.run(["streamlink", f"https://kick.com/{channel}"], capture_output=True, text=True, timeout=15)
+            available_streams = []
+            if "Available streams:" in result.stdout:
+                streams_section = result.stdout.split("Available streams:")[1].strip()
+                for line in streams_section.split("\n"):
+                    line = line.strip()
+                    if line and not line.startswith("("):
+                        quality = line.split(" ")[0].strip()
+                        if quality and quality not in ["worst", "best"]:
+                            available_streams.append(quality)
+                if "best" in streams_section or "(best)" in streams_section:
+                    available_streams.insert(0, "best")
+            
+            quality_order = ["best", "1080p60", "1080p", "720p60", "720p", "480p", "360p", "160p"]
+            available_sorted = [q for q in quality_order if q in available_streams]
+            
+            if selected_quality and selected_quality not in ["otomatik", "auto", "best"]:
+                if selected_quality in available_streams:
+                    return selected_quality
+                elif available_sorted:
+                    return available_sorted[0]
+            
+            if "best" in available_sorted:
+                return "best"
+            elif available_sorted:
+                return available_sorted[0]
+            return "best"
+        except:
+            return "best"
+            
+    def start_record(self):
+        self.recording = True
+        self.was_recording = False
+        self.current_filename = None
+        self.log(f"🎬 {_('log_start')}", "cyan")
+        self.set_status(_("status_waiting"), "orange")
+        
+        def record_loop():
+            channel = self.channel_entry.get().strip().lower()
+            selected_quality = self.quality_menu.get()
+            folder = self.folder_entry.get()
+            
+            if selected_quality in ["otomatik", "auto"]:
+                quality = self.find_best_quality(channel)
+                self.log(f"⚙ Otomatik kalite: {quality}", "green")
+            else:
+                quality = self.find_best_quality(channel, selected_quality)
+                if quality != selected_quality:
+                    self.log(f"⚠ '{selected_quality}' mevcut değil, '{quality}' kullanılıyor", "orange")
+            
+            was_live_before = False
+            
+            while self.recording:
+                try:
+                    is_live = self.check_live_simple(channel)
+                    
+                    if not is_live:
+                        self.set_status("ÇEVRİMDIŞI", "red")
+                        if was_live_before:
+                            self.log(f"📴 Yayın sona erdi! {channel} artık çevrimdışı", "orange")
+                            if self.shutdown_after and self.was_recording:
+                                threading.Thread(target=self.shutdown_computer, daemon=True).start()
+                            elif self.close_app_after and self.was_recording:
+                                threading.Thread(target=self.close_app, daemon=True).start()
+                            was_live_before = False
+                        time.sleep(10)
+                        continue
+                    else:
+                        if not was_live_before:
+                            was_live_before = True
+                            self.was_recording = True
+                            self.log(f"🔴 CANLI YAYIN BAŞLADI! Kayıt alınıyor...", "green")
+                            
+                            now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                            channel_folder = os.path.join(folder, channel)
+                            if not os.path.exists(channel_folder):
+                                os.makedirs(channel_folder)
+                            
+                            self.current_filename = os.path.join(channel_folder, f"{channel}_{now}.mp4")
+                            self.start_time = time.time()
+                            self.set_status(_("status_online"), "green")
+                            self.log(f"📁 Dosya: {os.path.basename(self.current_filename)}", "cyan")
+                            
+                            self.process = subprocess.Popen([
+                                "streamlink", f"https://kick.com/{channel}", quality, "-o", self.current_filename, "--quiet"
+                            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            
+                            self.process.wait()
+                            
+                            if self.current_filename and os.path.exists(self.current_filename):
+                                size = os.path.getsize(self.current_filename) / (1024*1024)
+                                self.log(f"📊 Kayıt tamamlandı: {size:.2f} MB", "green")
+                            
+                            self.start_time = None
+                            time.sleep(5)
+                        else:
+                            self.set_status(_("status_online"), "green")
+                            time.sleep(1)
+                            
+                except Exception as e:
+                    self.log(f"❌ Döngü hatası: {e}", "red")
+                    time.sleep(10)
+        
+        threading.Thread(target=record_loop, daemon=True).start()
+        self.save_user_data()
+        
+    def stop_record(self):
+        self.recording = False
+        
+        if self.shutdown_after:
+            self.shutdown_after = False
+            self.shutdown_var.set(False)
+        if self.close_app_after:
+            self.close_app_after = False
+            self.close_app_var.set(False)
+        
+        if self.process:
+            try:
+                self.process.terminate()
+                self.process.kill()
+            except:
+                pass
+            self.process = None
+        
+        self.set_status(_("status_stopped"), "gray")
+        self.timer_label.configure(text=f"{_('timer')} 00:00:00")
+        self.log(f"⏹ Kayıt durduruldu", "orange")
+        self.save_user_data()
+        
     def toggle_record(self):
         if self.recording:
             self.stop_record()
@@ -1185,77 +1411,6 @@ class App(ctk.CTk):
             self.start_record()
             self.toggle_button.configure(text=_("button_stop"), fg_color="#f44336")
             
-    def start_record(self):
-        self.recording = True
-        self.was_recording = False
-        self.current_filename = None
-        self.log(f"🎬 {_('log_start')}", "cyan")
-        self.set_status(_("status_waiting"), "orange")
-        threading.Thread(target=self.record_loop, daemon=True).start()
-        
-    def stop_record(self):
-        self.recording = False
-        self.was_recording = False
-        
-        if self.shutdown_after:
-            self.shutdown_after = False
-            self.shutdown_var.set(False)
-        if self.close_app_after:
-            self.close_app_after = False
-            self.close_app_var.set(False)
-            
-        if self.process:
-            try:
-                self.process.terminate()
-                self.process.kill()
-            except:
-                pass
-            self.process = None
-            
-        self.set_status(_("status_stopped"), "gray")
-        self.timer_label.configure(text=f"{_('timer')} 00:00:00")
-        self.log(f"⏹ Kayıt durduruldu", "orange")
-        
-    def record_loop(self):
-        channel = self.channel_entry.get().strip().lower()
-        quality = self.quality_menu.get()
-        folder = self.folder_entry.get()
-        
-        if quality in ["otomatik", "auto"]:
-            quality = "best"
-            
-        while self.recording:
-            try:
-                now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                channel_folder = os.path.join(folder, channel)
-                if not os.path.exists(channel_folder):
-                    os.makedirs(channel_folder)
-                    
-                self.current_filename = os.path.join(channel_folder, f"{channel}_{now}.mp4")
-                self.start_time = time.time()
-                self.set_status(_("status_online"), "green")
-                
-                self.process = subprocess.Popen([
-                    "streamlink",
-                    f"https://kick.com/{channel}",
-                    quality,
-                    "-o",
-                    self.current_filename
-                ])
-                
-                self.process.wait()
-                
-                if self.current_filename and os.path.exists(self.current_filename):
-                    size = os.path.getsize(self.current_filename) / (1024*1024)
-                    self.log(f"📊 Kayıt tamamlandı: {size:.2f} MB", "green")
-                    
-                self.start_time = None
-                time.sleep(5)
-                
-            except Exception as e:
-                self.log(f"❌ Hata: {e}", "red")
-                time.sleep(10)
-                
     def update_timer(self):
         if self.recording and self.start_time:
             elapsed = int(time.time() - self.start_time)
@@ -1279,7 +1434,7 @@ class App(ctk.CTk):
         except:
             messagebox.showinfo("Bilgi", "Henüz kayıt yok")
             return
-            
+        
         history_window = ctk.CTkToplevel(self)
         history_window.title("Yayın Geçmişi")
         history_window.geometry("600x400")
@@ -1293,26 +1448,93 @@ class App(ctk.CTk):
             
     def check_for_updates(self):
         try:
-            response = requests.get(VERSION_CHECK_URL, timeout=5)
+            self.log(f"🔄 Güncelleme kontrol ediliyor...", "blue")
+            response = requests.get("https://raw.githubusercontent.com/erneman26/Kick-Canli-Yayin-Kaydedici/main/version.json", timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 latest = data.get("version", VERSION)
                 if latest > VERSION:
-                    self.log(f"✨ YENİ VERSİYON: {latest}", "green")
+                    self.log(f"✨ YENİ VERSİYON MEVCUT: {latest}", "green")
+                    if messagebox.askyesno("Güncelleme", f"Yeni versiyon {latest} mevcut. İndirmek ister misiniz?"):
+                        webbrowser.open("https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/releases/latest")
+                else:
+                    self.log(f"✅ Uygulamanız güncel!", "green")
         except:
-            pass
+            self.log(f"⚠ Güncelleme kontrol edilemedi", "orange")
             
     def change_language(self, choice):
         global current_lang
+        
+        self.save_user_data()
+        self.save_profiles()
+        
         current_lang = choice
-        self.log(_("lang_detected").format(choice), "cyan")
-        messagebox.showinfo("Dil Değişti", "Dil değişikliği için uygulamayı yeniden başlatın.")
+        
+        try:
+            with open("language.json", "w", encoding="utf-8") as f:
+                json.dump({"language": choice}, f)
+        except:
+            pass
+        
+        messagebox.showinfo(_("language_label"), f"Dil '{choice}' olarak değiştirildi. Program yeniden başlatılıyor...")
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
         
     def change_theme(self, choice):
         theme_map = {"Koyu": "dark", "Açık": "light", "Sistem": "system"}
         ctk.set_appearance_mode(theme_map.get(choice, "dark"))
+        self.save_user_data()
         
-    def load_profiles_from_file(self):
+    def load_user_data(self):
+        try:
+            with open("user_data.json", "r", encoding="utf-8") as f:
+                data = json.load(f)
+                
+                if "channel" in data and data["channel"]:
+                    self.channel_entry.insert(0, data["channel"])
+                if "folder" in data and data["folder"]:
+                    self.folder_entry.insert(0, data["folder"])
+                if "quality" in data:
+                    self.quality_menu.set(data["quality"])
+                if "shutdown" in data:
+                    self.shutdown_var.set(data["shutdown"])
+                    if data["shutdown"]:
+                        self.shutdown_after = True
+                if "close_app" in data:
+                    self.close_app_var.set(data["close_app"])
+                    if data["close_app"]:
+                        self.close_app_after = True
+                if "profiles" in data:
+                    self.channel_profiles = data["profiles"]
+                    self.update_profiles_list()
+                if "schedules" in data:
+                    self.scheduled_tasks = data["schedules"]
+                    self.update_scheduler_list()
+                    
+                print("✅ Kullanıcı verileri yüklendi")
+        except FileNotFoundError:
+            print("⚠ Kullanıcı verileri bulunamadı (ilk çalıştırma)")
+        except Exception as e:
+            print(f"⚠ Kullanıcı verileri yüklenemedi: {e}")
+            
+    def save_user_data(self):
+        try:
+            data = {
+                "channel": self.channel_entry.get(),
+                "folder": self.folder_entry.get(),
+                "quality": self.quality_menu.get(),
+                "shutdown": self.shutdown_var.get(),
+                "close_app": self.close_app_var.get(),
+                "profiles": self.channel_profiles,
+                "schedules": self.scheduled_tasks
+            }
+            with open("user_data.json", "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            print("✅ Kullanıcı verileri kaydedildi")
+        except Exception as e:
+            print(f"⚠ Veri kaydedilemedi: {e}")
+            
+    def load_profiles(self):
         try:
             if os.path.exists(PROFILES_FILE):
                 with open(PROFILES_FILE, "r", encoding="utf-8") as f:
@@ -1321,7 +1543,7 @@ class App(ctk.CTk):
         except:
             self.channel_profiles = []
             
-    def save_profiles_to_file(self):
+    def save_profiles(self):
         try:
             with open(PROFILES_FILE, "w", encoding="utf-8") as f:
                 json.dump(self.channel_profiles, f, indent=2, ensure_ascii=False)
@@ -1335,14 +1557,15 @@ class App(ctk.CTk):
         if not channel:
             self.log(_("error_channel"), "red")
             return
-            
+        
         for p in self.channel_profiles:
             if p['channel'] == channel:
                 self.log(_("profile_exists").format(channel), "orange")
                 return
-                
+        
         self.channel_profiles.append({"channel": channel, "folder": folder})
-        self.save_profiles_to_file()
+        self.save_profiles()
+        self.save_user_data()
         self.update_profiles_list()
         self.log(_("profile_added").format(channel), "green")
         self.profile_channel_entry.delete(0, "end")
@@ -1355,20 +1578,18 @@ class App(ctk.CTk):
                 self.active_profile_channel = None
                 self.channel_entry.delete(0, "end")
                 self.folder_entry.delete(0, "end")
-            self.save_profiles_to_file()
+            self.save_profiles()
+            self.save_user_data()
             self.update_profiles_list()
             self.log(_("profile_deleted").format(removed['channel']), "orange")
             
     def on_profile_click(self, channel, folder):
-        """Profile tıklandığında seç veya seçimi kaldır"""
         if self.active_profile_channel == channel:
-            # Aynı profile tekrar tıklandı -> seçimi kaldır
             self.active_profile_channel = None
             self.channel_entry.delete(0, "end")
             self.folder_entry.delete(0, "end")
             self.log(f"❌ Seçim kaldırıldı: {channel}", "orange")
         else:
-            # Yeni profil seçildi
             self.active_profile_channel = channel
             self.channel_entry.delete(0, "end")
             self.channel_entry.insert(0, channel)
@@ -1376,97 +1597,64 @@ class App(ctk.CTk):
                 self.folder_entry.delete(0, "end")
                 self.folder_entry.insert(0, folder)
             self.log(f"✅ Profil seçildi: {channel}", "green")
-            if folder:
-                self.log(f"📁 Klasör: {folder}", "cyan")
-        
-        # Listeyi yenile (renk güncellemesi için)
         self.update_profiles_list()
+        self.save_user_data()
         
     def update_profiles_list(self):
-        """Profilleri canlı yayın durumuyla göster - tıklayarak seç/çıkar"""
-        if hasattr(self, 'profiles_listbox'):
-            for widget in self.profiles_listbox.winfo_children():
-                widget.destroy()
+        for widget in self.profiles_listbox.winfo_children():
+            widget.destroy()
+        
+        if self.channel_profiles:
+            for profile in self.channel_profiles:
+                channel_name = profile['channel']
+                folder_name = os.path.basename(profile.get('folder', '')) if profile.get('folder') else ""
+                is_live = self.check_live_simple(channel_name)
+                is_active = (self.active_profile_channel == channel_name)
                 
-            if self.channel_profiles:
-                for profile in self.channel_profiles:
-                    channel_name = profile['channel']
-                    folder_name = os.path.basename(profile.get('folder', '')) if profile.get('folder') else ""
-                    
-                    # Canlı kontrolü
-                    is_live = self.check_live_simple(channel_name)
-                    
-                    # Aktif profil kontrolü
-                    is_active = (self.active_profile_channel == channel_name)
-                    
-                    if is_live:
-                        status_icon = "🟢"
-                        status_text = "CANLI"
-                        status_color = "#4CAF50"
-                    else:
-                        status_icon = "🔴"
-                        status_text = "YAYINDA DEĞİL"
-                        status_color = "#f44336"
-                    
-                    # Çerçeve - aktif profil yeşil kenarlık ve koyu yeşil arka plan
-                    if is_active:
-                        frame = ctk.CTkFrame(self.profiles_listbox, corner_radius=8, fg_color=("#2a4a2a", "#1a3a1a"), border_width=2, border_color="#4CAF50")
-                    else:
-                        frame = ctk.CTkFrame(self.profiles_listbox, corner_radius=8, fg_color=("#3a3a3a", "#2a2a2a"))
-                    frame.pack(fill="x", padx=5, pady=3)
-                    
-                    # Tıklama olayı
-                    frame.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
-                    
-                    # Kanal adı
-                    if folder_name:
-                        name_text = f"{status_icon} {channel_name}  📁 {folder_name}"
-                    else:
-                        name_text = f"{status_icon} {channel_name}"
-                    
-                    name_label = ctk.CTkLabel(frame, text=name_text, anchor="w", font=ctk.CTkFont(size=13))
-                    name_label.pack(side="left", fill="x", expand=True, padx=10, pady=8)
-                    name_label.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
-                    
-                    # Seçili etiketi
-                    if is_active:
-                        active_label = ctk.CTkLabel(frame, text=_("active_profile"), text_color="#4CAF50", font=ctk.CTkFont(size=10, weight="bold"), width=60)
-                        active_label.pack(side="right", padx=5)
-                        active_label.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
-                    
-                    # Durum etiketi
-                    status_label = ctk.CTkLabel(frame, text=status_text, text_color=status_color, font=ctk.CTkFont(size=11, weight="bold"), width=80)
-                    status_label.pack(side="right", padx=10)
-                    status_label.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
-            else:
-                empty_label = ctk.CTkLabel(self.profiles_listbox, text=_("scheduler_empty"), anchor="w")
-                empty_label.pack(fill="x", padx=5, pady=2)
+                if is_live:
+                    status_icon = "🟢"
+                    status_text = "CANLI"
+                    status_color = "#4CAF50"
+                else:
+                    status_icon = "🔴"
+                    status_text = "YAYINDA DEĞİL"
+                    status_color = "#f44336"
                 
-    def check_live_simple(self, channel):
-        try:
-            url = f"https://kick.com/api/v2/channels/{channel}"
-            r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
-            if r.status_code == 200:
-                data = r.json()
-                if "livestream" in data and data["livestream"]:
-                    return data["livestream"].get("is_live", False)
-                return data.get("is_live", False)
-            return False
-        except:
-            return False
+                if is_active:
+                    frame = ctk.CTkFrame(self.profiles_listbox, corner_radius=8, fg_color=("#2a4a2a", "#1a3a1a"), border_width=2, border_color="#4CAF50")
+                else:
+                    frame = ctk.CTkFrame(self.profiles_listbox, corner_radius=8, fg_color=("#3a3a3a", "#2a2a2a"))
+                frame.pack(fill="x", padx=5, pady=3)
+                frame.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
+                
+                name_label = ctk.CTkLabel(frame, text=f"{status_icon} {channel_name}" + (f"  📁 {folder_name}" if folder_name else ""), anchor="w", font=ctk.CTkFont(size=13))
+                name_label.pack(side="left", fill="x", expand=True, padx=10, pady=8)
+                name_label.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
+                
+                if is_active:
+                    active_label = ctk.CTkLabel(frame, text=_("active_profile"), text_color="#4CAF50", font=ctk.CTkFont(size=10, weight="bold"), width=60)
+                    active_label.pack(side="right", padx=5)
+                    active_label.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
+                
+                status_label = ctk.CTkLabel(frame, text=status_text, text_color=status_color, font=ctk.CTkFont(size=11, weight="bold"), width=80)
+                status_label.pack(side="right", padx=10)
+                status_label.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
+        else:
+            empty_label = ctk.CTkLabel(self.profiles_listbox, text=_("scheduler_empty"), anchor="w")
+            empty_label.pack(fill="x", padx=5, pady=2)
             
     def add_scheduled_record(self):
         channel = self.scheduler_channel_entry.get().strip().lower()
         time_str = self.scheduler_time_entry.get().strip()
-        
         selected_days = [day for day, var in self.day_vars.items() if var.get()]
         
         if not channel or not time_str or not selected_days:
             self.log("Lütfen tüm alanları doldurun!", "red")
             return
-            
+        
         self.scheduled_tasks.append([channel, time_str, selected_days])
         self.update_scheduler_list()
+        self.save_user_data()
         self.log(f"📅 Plan eklendi: {channel} - {time_str}", "green")
         
         self.scheduler_channel_entry.delete(0, "end")
@@ -1480,36 +1668,33 @@ class App(ctk.CTk):
             if 0 <= idx < len(self.scheduled_tasks):
                 removed = self.scheduled_tasks.pop(idx)
                 self.update_scheduler_list()
+                self.save_user_data()
                 self.log(f"❌ Plan silindi: {removed[0]}", "orange")
                 
     def update_scheduler_list(self):
-        if hasattr(self, 'scheduler_listbox'):
-            for widget in self.scheduler_listbox.winfo_children():
-                widget.destroy()
-                
-            for idx, task in enumerate(self.scheduled_tasks):
-                days_str = ", ".join(task[2])
-                frame = ctk.CTkFrame(self.scheduler_listbox, corner_radius=8, fg_color=("#3a3a3a", "#2a2a2a"))
-                frame.pack(fill="x", padx=5, pady=3)
-                
-                text = f"📺 {task[0]} | ⏰ {task[1]} | 📅 {days_str}"
-                label = ctk.CTkLabel(frame, text=text, anchor="w", font=ctk.CTkFont(size=12))
-                label.pack(side="left", fill="x", expand=True, padx=10, pady=8)
-                
-                radio = ctk.CTkRadioButton(frame, text="", variable=self.scheduler_selected_var, value=idx, width=20)
-                radio.pack(side="right", padx=10)
-                
+        for widget in self.scheduler_listbox.winfo_children():
+            widget.destroy()
+        
+        for idx, task in enumerate(self.scheduled_tasks):
+            days_str = ", ".join(task[2])
+            frame = ctk.CTkFrame(self.scheduler_listbox, corner_radius=8, fg_color=("#3a3a3a", "#2a2a2a"))
+            frame.pack(fill="x", padx=5, pady=3)
+            
+            text = f"📺 {task[0]} | ⏰ {task[1]} | 📅 {days_str}"
+            label = ctk.CTkLabel(frame, text=text, anchor="w", font=ctk.CTkFont(size=12))
+            label.pack(side="left", fill="x", expand=True, padx=10, pady=8)
+            
+            radio = ctk.CTkRadioButton(frame, text="", variable=self.scheduler_selected_var, value=idx, width=20)
+            radio.pack(side="right", padx=10)
+            
     def stop_current_recording(self):
         if self.recording:
             self.stop_record()
             self.log("⏹ Kayıt durduruldu", "orange")
+            self.toggle_button.configure(text=_("button_start"), fg_color="#4CAF50")
         else:
             self.log("⚠ Aktif kayıt yok!", "orange")
             
-    def start_scheduler(self):
-        self.scheduler_running = True
-        self.log(_("log_scheduler"), "green")
-        
     def set_app_icon(self):
         try:
             if getattr(sys, 'frozen', False):
@@ -1518,12 +1703,35 @@ class App(ctk.CTk):
                 path = os.path.dirname(os.path.abspath(__file__))
             icon_path = os.path.join(path, "kick.ico")
             if os.path.exists(icon_path):
-                self.iconbitmap(icon_path)
+                try:
+                    self.iconbitmap(icon_path)
+                    console_log("✅ İkon yüklendi", "green")
+                except:
+                    pass
         except:
             pass
+    
+    def on_closing(self):
+        if self.recording:
+            if messagebox.askyesno("Uyarı", "Kayıt devam ediyor! Gerçekten çıkmak istiyor musunuz?"):
+                self.save_user_data()
+                self.save_profiles()
+                self.destroy()
+        else:
+            self.save_user_data()
+            self.save_profiles()
+            self.destroy()
 
 # ---------- UYGULAMAYI BAŞLAT ----------
+PROFILES_FILE = "profiller.json"
+
 if __name__ == "__main__":
     app = App()
-    app.protocol("WM_DELETE_WINDOW", lambda: (app.save_profiles_to_file(), app.destroy()))
+    app.protocol("WM_DELETE_WINDOW", app.on_closing)
+    
+    print(Renkler.YESIL + "\n" + "-"*70)
+    print(f"✅ {_('app_title')} {VERSION} başlatıldı")
+    print(f"🌍 Sistem dili: {current_lang}")
+    print("-"*70 + "\n" + Renkler.SON)
+    
     app.mainloop()
