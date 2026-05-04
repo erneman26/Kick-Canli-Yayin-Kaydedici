@@ -5,17 +5,10 @@
 ![Version](https://img.shields.io/badge/version-v1.4-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-yellow)
-![License](https://img.shields.io/badge/license-MIT-purple)
 
 **Kick.com canlı yayınlarını otomatik olarak kaydeden, modern arayüzlü bir masaüstü uygulaması.**
 
 </div>
-
----
-
-## 📸 Ekran Görüntüleri
-
-> Kayıt, Planlayıcı, Profiller ve Loglar sekmeleri
 
 ---
 
@@ -94,7 +87,9 @@
 
 ## 📝 Lisans
 
-MIT License — dilediğin gibi kullanabilirsin.
+Bu proje özel bir lisans ile korunmaktadır.
+Kullanabilir, değiştirebilir ve geliştirebilirsin — ancak bu yazılımı veya türev çalışmalarını dağıtırken "Orijinal geliştirici: erneman26" ibaresini ve kaynak repo linkini açıkça belirtmek zorundasın. Orijinal geliştirici bilgisi gizlenemez veya kaldırılamaz.
+Detaylar için LICENSE dosyasına bak.
 
 ---
 
