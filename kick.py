@@ -62,7 +62,7 @@ def _setup_logging() -> logging.Logger:
 log = _setup_logging()
 
 # ─── SABITLER ─────────────────────────────────────────────────────────────────
-VERSION       = "v1.5"
+VERSION       = "v1.4"
 PROFILES_FILE = "profiller.json"
 HISTORY_FILE  = "kayit_gecmisi.json"
 LANG_FILE     = "languages.json"
