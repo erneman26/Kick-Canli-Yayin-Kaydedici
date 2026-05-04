@@ -94,7 +94,9 @@
 
 ## 📝 Lisans
 
-MIT License — dilediğin gibi kullanabilirsin.
+Bu proje özel bir lisans ile korunmaktadır.
+Kullanabilir, değiştirebilir ve geliştirebilirsin — ancak bu yazılımı veya türev çalışmalarını dağıtırken "Orijinal geliştirici: erneman26" ibaresini ve kaynak repo linkini açıkça belirtmek zorundasın. Orijinal geliştirici bilgisi gizlenemez veya kaldırılamaz.
+Detaylar için LICENSE dosyasına bak.
 
 ---
 
