@@ -1,1737 +1,1601 @@
-import customtkinter as ctk
-from tkinter import filedialog, messagebox
-import subprocess
-import threading
-import datetime
-import os
-import time
-import requests
-import sys
-import ctypes
-import json
-import webbrowser
-from PIL import Image
-import re
-import schedule
-import locale
+"""
+Kick Canlı Yayın Kaydedici  —  v1.4
+Geliştirici : erneman26
+UI          : PyQt6 + kick_widgets.py
+"""
 
-# ---------- SİSTEM DİLİNİ OTOMATİK ALGILA ----------
-def detect_system_language():
+import subprocess, threading, datetime, os, time
+import requests, sys, ctypes, json, webbrowser, re
+import schedule, logging
+from logging.handlers import RotatingFileHandler
+
+# ── PyQt6 ────────────────────────────────────────────────────────────────────
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QLineEdit, QComboBox, QScrollArea, QFrame,
+    QFileDialog, QMessageBox, QSystemTrayIcon, QMenu,
+    QRadioButton, QButtonGroup, QTextEdit, QSizePolicy,
+    QGraphicsOpacityEffect,
+    QStackedWidget, QGridLayout,
+)
+from PyQt6.QtCore import (
+    Qt, QTimer, QThread, pyqtSignal, QSize, QPropertyAnimation,
+    QEasingCurve, QPoint,
+)
+from PyQt6.QtGui import (
+    QFont, QColor, QPalette, QIcon, QPixmap, QPainter,
+    QAction,
+)
+
+# ── Kendi widget kütüphanemiz ─────────────────────────────────────────────────
+from kick_widgets import HoverButton, PulseIndicator, FadeStack, AnimatedCheckBox
+
+# ── Opsiyonel bağımlılıklar ───────────────────────────────────────────────────
+try:
+    from plyer import notification as _plyer_notif
+    PLYER_OK = True
+except ImportError:
+    PLYER_OK = False
+
+try:
+    import pystray
+    from PIL import Image as PilImage
+    TRAY_OK = True
+except ImportError:
+    TRAY_OK = False
+
+# ─── LOGGING ──────────────────────────────────────────────────────────────────
+def _setup_logging() -> logging.Logger:
+    logger = logging.getLogger("KickRecorder")
+    logger.setLevel(logging.DEBUG)
+    fmt = logging.Formatter("[%(asctime)s] %(levelname)s  %(message)s", datefmt="%H:%M:%S")
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    ch.setFormatter(fmt)
+    logger.addHandler(ch)
+    fh = RotatingFileHandler("hata_log.txt", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
+    fh.setLevel(logging.WARNING)
+    fh.setFormatter(fmt)
+    logger.addHandler(fh)
+    return logger
+
+log = _setup_logging()
+
+# ─── SABITLER ─────────────────────────────────────────────────────────────────
+VERSION       = "v1.5"
+PROFILES_FILE = "profiller.json"
+HISTORY_FILE  = "kayit_gecmisi.json"
+LANG_FILE     = "languages.json"
+DATA_FILE     = "user_data.json"
+LANG_SEL_FILE = "language.json"
+
+# ─── KONSOL RENKLERİ ──────────────────────────────────────────────────────────
+class R:
+    KIRMIZI = '\033[91m'; YESIL = '\033[92m'; SARI = '\033[93m'
+    MAVI    = '\033[94m'; MOR   = '\033[95m'; TURKUAZ = '\033[96m'
+    BEYAZ   = '\033[97m'; BOLD  = '\033[1m';  DIM = '\033[2m'; SON = '\033[0m'
+
+def _print_banner():
+    if sys.platform == "win32":
+        try: ctypes.windll.kernel32.SetConsoleMode(ctypes.windll.kernel32.GetStdHandle(-11), 7)
+        except: pass
+
+    W = R.BEYAZ; C = R.TURKUAZ; G = R.YESIL
+    Y = R.SARI;  M = R.MOR;     B = R.BOLD; S = R.SON
+
+    W60 = "═" * 60
+
+    print()
+    # ── Logo ──────────────────────────────────────────────────────────────────
+    print(f"{B}{C}  ╔{W60}╗{S}")
+    print(f"{B}{C}  ║{'':^60}║{S}")
+    print(f"{B}{C}  ║{'':^4}{G}██╗  ██╗██╗ ██████╗██╗  ██╗{C}{'':^4}║{S}")
+    print(f"{B}{C}  ║{'':^4}{G}██║ ██╔╝██║██╔════╝██║ ██╔╝{C}{'':^4}║{S}")
+    print(f"{B}{C}  ║{'':^4}{Y}█████╔╝ ██║██║     █████╔╝ {C}{'':^4}║{S}")
+    print(f"{B}{C}  ║{'':^4}{Y}██╔═██╗ ██║██║     ██╔═██╗ {C}{'':^4}║{S}")
+    print(f"{B}{C}  ║{'':^4}{M}██║  ██╗██║╚██████╗██║  ██╗{C}{'':^4}║{S}")
+    print(f"{B}{C}  ║{'':^4}{M}╚═╝  ╚═╝╚═╝ ╚═════╝╚═╝  ╚═╝{C}{'':^3}║{S}")
+    print(f"{B}{C}  ║{'':^60}║{S}")
+    title = f"🎬  CANLI YAYIN KAYDEDİCİ  {VERSION}  by erneman26"
+    print(f"{B}{C}  ║{title:^60}║{S}")
+    print(f"{B}{C}  ║{'':^60}║{S}")
+    print(f"{B}{C}  ╠{W60}╣{S}")
+    # ── Uyarı ─────────────────────────────────────────────────────────────────
+    print(f"{B}{Y}  ║{'':^60}║{S}")
+    warn = "⚠   BU PENCEREYI KAPATMAYIN!   ⚠"
+    print(f"{B}{Y}  ║{warn:^60}║{S}")
+    print(f"{B}{Y}  ║{'':^60}║{S}")
+    info1 = "Kapatırsanız aktif KAYIT DURUR!"
+    info2 = "Simge durumuna küçültebilirsiniz  ✔"
+    info3 = f"Hata detayları  →  hata_log.txt"
+    print(f"{B}{W}  ║  • {info1:<56}║{S}")
+    print(f"{B}{W}  ║  • {info2:<56}║{S}")
+    print(f"{B}{W}  ║  • {info3:<56}║{S}")
+    print(f"{B}{Y}  ║{'':^60}║{S}")
+    print(f"{B}{C}  ╚{W60}╝{S}")
+    print()
+    print(f"{B}{G}  ✔  Program başlatılıyor...{S}")
+    print()
+
+_print_banner()
+
+try:
+    ctypes.windll.kernel32.SetConsoleTitleW(f"🎬 Kick Canlı Yayın Kaydedici {VERSION}")
+except: pass
+
+# ─── DİL ──────────────────────────────────────────────────────────────────────
+def detect_system_language() -> str:
     try:
         if sys.platform == "win32":
-            try:
-                windll = ctypes.windll.kernel32
-                lang_id = windll.GetUserDefaultUILanguage()
-                lang_map = {
-                    1055: "Türkçe", 1033: "English", 1031: "Deutsch",
-                    1036: "Français", 1034: "Español", 1040: "Italiano",
-                    1046: "Português", 1049: "Русский", 1041: "日本語",
-                    1042: "한국어", 2052: "中文"
-                }
-                if lang_id in lang_map:
-                    return lang_map[lang_id]
-            except:
-                pass
-        return "Türkçe"
-    except:
-        return "Türkçe"
+            lang_id = ctypes.windll.kernel32.GetUserDefaultUILanguage()
+            return {1055:"Türkçe",1033:"English",1031:"Deutsch",1036:"Français",
+                    1034:"Español",1040:"Italiano",1046:"Português",1049:"Русский",
+                    1041:"日本語",1042:"한국어",2052:"中文"}.get(lang_id,"Türkçe")
+    except: pass
+    return "Türkçe"
 
-# ---------- VERSİYON ----------
-VERSION = "v1.3"
+def _load_languages() -> dict:
+    if os.path.exists(LANG_FILE):
+        try:
+            with open(LANG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict) and data:
+                return data
+        except Exception as e:
+            log.warning(f"languages.json okunamadı: {e}")
+    # Minimal fallback
+    return {"Türkçe": {
+        "app_title":"Kick Canlı Yayın Kaydedici","tab_record":"🎬 KAYIT",
+        "tab_scheduler":"📅 PLANLAYICI","tab_profiles":"⭐ PROFİLLER",
+        "tab_settings":"⚙ AYARLAR","tab_logs":"📋 LOGLAR",
+        "channel_placeholder":"Kanal adı","quality_auto":"otomatik",
+        "folder_placeholder":"Kayıt klasörü","folder_select":"📁 Seç",
+        "shutdown_option":"Yayın bitince bilgisayarı kapat",
+        "close_app_option":"Yayın bitince uygulamayı kapat",
+        "button_start":"▶ BAŞLAT","button_stop":"⏹ DURDUR",
+        "button_history":"📜 Geçmiş","button_update":"🔄 Güncelle",
+        "status_ready":"HAZIR","status_waiting":"YAYIN BEKLENİYOR",
+        "status_online":"🔴 KAYIT YAPILIYOR","status_offline":"⚫ ÇEVRİMDIŞI",
+        "status_stopped":"⏸ DURDU","timer":"⏱","filesize":"💾",
+        "log_start":"Program başlatıldı","scheduler_empty":"Plan yok",
+        "profile_added":"✅ Profil eklendi: {}","profile_deleted":"❌ Profil silindi: {}",
+        "profile_exists":"⚠ {} zaten profillerde","error_channel":"Lütfen kanal adı girin",
+        "error_folder":"Lütfen kayıt klasörü seçin","error_time":"Geçersiz saat! Örnek: 14:30",
+        "error_days":"En az bir gün seçin!","error_no_selection":"Bir plan seçin!",
+        "shutdown_active":"Bilgisayar kapatma AKTİF","close_app_active":"Uygulama kapatma AKTİF",
+        "lang_detected":"🌍 Sistem dili: {}","log_scheduler":"Planlayıcı başlatıldı",
+        "log_instruction":"Kanal adını girin ve BAŞLAT'a tıklayın",
+        "profiles_title":"Kayıtlı Kanallar","profile_channel":"Kanal Adı:",
+        "profile_folder":"Klasör:","profile_save":"💾 Kaydet","profile_delete":"🗑 Sil",
+        "theme_label":"Tema","theme_dark":"Koyu","theme_light":"Açık","theme_system":"Sistem",
+        "language_label":"Dil","scheduler_channel":"Kanal","scheduler_time":"Saat",
+        "scheduler_days":"Günler","scheduler_quality":"Kalite",
+        "scheduler_add":"➕ Ekle","scheduler_delete":"❌ Sil",
+        "scheduler_stop":"⏹ Kaydı Durdur","scheduler_list":"Planlanan Kayıtlar",
+        "active_profile":"✅ SEÇİLİ","next_trigger":"Sonraki: {}",
+        "notif_started":"Kayıt başladı","notif_stopped":"Kayıt tamamlandı",
+        "dep_missing_title":"Eksik Bağımlılık",
+        "dep_missing_msg":"Aşağıdaki araçlar bulunamadı:\n{}\n\npip install streamlink",
+    }}
 
-# ---------- KONSOL RENKLERİ ----------
-class Renkler:
-    KIRMIZI = '\033[91m'
-    YESIL = '\033[92m'
-    SARI = '\033[93m'
-    MAVI = '\033[94m'
-    MOR = '\033[95m'
-    TURKUAZ = '\033[96m'
-    BEYAZ = '\033[97m'
-    BOLD = '\033[1m'
-    SON = '\033[0m'
-
-# ---------- KONSOL AÇILIŞ MESAJI ----------
-print(Renkler.BOLD + Renkler.TURKUAZ + "\n" + "="*70)
-print(f"                    KICK CANLI YAYIN KAYDEDİCİ {VERSION}")
-print("="*70)
-print(Renkler.SARI + "╔════════════════════════════════════════════════════════╗")
-print("║     ⚠  BU PENCEREYİ KAPATMAYIN!  ⚠                       ║")
-print("║                                                          ║")
-print("║     Bu siyah pencere (CMD) programın çalışması için      ║")
-print("║     gereklidir. Kapatırsanız KAYIT DURUR!               ║")
-print("╚════════════════════════════════════════════════════════╝" + Renkler.SON)
-print(Renkler.BEYAZ + "-"*70)
-print("▶ CMD'yi simge durumuna küçültebilirsiniz")
-print("▶ Programı kapatmak için arayüzdeki X butonunu kullanın")
-print("▶ Hata durumunda 'hata_log.txt' dosyasını kontrol edin")
-print(Renkler.TURKUAZ + "="*70 + Renkler.SON)
-print("")
-print(Renkler.YESIL + "Program başlatılıyor... Lütfen bekleyin." + Renkler.SON)
-print("")
-
-# Konsol başlığını değiştir
-try:
-    ctypes.windll.kernel32.SetConsoleTitleW(f"Kick Canlı Yayın Kaydedici {VERSION}")
-except:
-    pass
-
-# ---------- DİL DOSYASI (11 DİL) ----------
-LANGUAGES = {
-    "Türkçe": {
-        "app_title": "Kick Canlı Yayın Kaydedici",
-        "tab_record": "🎬 KAYIT",
-        "tab_scheduler": "📅 PLANLAYICI",
-        "tab_profiles": "⭐ PROFİLLER",
-        "tab_settings": "⚙ AYARLAR",
-        "tab_logs": "📋 LOGLAR",
-        "channel_placeholder": "Kanal adı",
-        "quality_auto": "otomatik",
-        "quality_best": "en iyi",
-        "folder_placeholder": "Kayıt klasörü",
-        "folder_select": "📁 Seç",
-        "shutdown_option": "Yayın bitince bilgisayarı kapat",
-        "close_app_option": "Yayın bitince uygulamayı kapat",
-        "button_start": "▶ BAŞLAT",
-        "button_stop": "⏹ DURDUR",
-        "button_history": "📜 Geçmiş",
-        "button_update": "🔄 Güncelle",
-        "status_ready": "HAZIR",
-        "status_waiting": "YAYIN BEKLENİYOR",
-        "status_online": "🔴 KAYIT YAPILIYOR",
-        "status_offline": "⚫ ÇEVRİMDIŞI",
-        "status_stopped": "⏸ DURDU",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "Program başlatıldı",
-        "scheduler_empty": "Plan yok",
-        "profile_saved": "✅ Profil başarıyla kaydedildi!",
-        "profile_added": "✅ Profil eklendi: {}",
-        "profile_deleted": "❌ Profil silindi: {}",
-        "profile_exists": "⚠ {} zaten profillerde",
-        "error_channel": "Lütfen kanal adı girin",
-        "error_folder": "Lütfen kayıt klasörü seçin",
-        "error_time": "Geçersiz saat formatı! Örnek: 14:30",
-        "error_days": "Lütfen en az bir gün seçin!",
-        "error_no_selection": "Lütfen bir plan seçin!",
-        "shutdown_active": "Yayın bitince bilgisayar KAPATMA özelliği AKTİF",
-        "close_app_active": "Yayın bitince uygulama KAPATMA özelliği AKTİF",
-        "shutdown_cancel": "Bilgisayar kapatma iptal edildi",
-        "close_app_cancel": "Uygulama kapatma iptal edildi",
-        "lang_detected": "🌍 Sistem dili algılandı: {}",
-        "log_scheduler": "Planlayıcı başlatıldı",
-        "log_instruction": "Kanal adını girin ve BAŞLAT'a tıklayın",
-        "profiles_title": "Kayıtlı Kanallar",
-        "profiles_list": "Kanallar",
-        "profile_channel": "Kanal Adı:",
-        "profile_folder": "Klasör:",
-        "profile_save": "💾 Kaydet",
-        "profile_delete": "🗑 Sil",
-        "theme_label": "Tema",
-        "theme_dark": "Koyu",
-        "theme_light": "Açık",
-        "theme_system": "Sistem",
-        "language_label": "Dil",
-        "scheduler_channel": "Kanal",
-        "scheduler_time": "Saat",
-        "scheduler_days": "Günler",
-        "scheduler_add": "➕ Ekle",
-        "scheduler_delete": "❌ Sil",
-        "scheduler_stop": "⏹ Kaydı Durdur",
-        "scheduler_list": "Planlanan Kayıtlar",
-        "active_profile": "✅ SEÇİLİ",
-    },
-    "English": {
-        "app_title": "Kick Live Stream Recorder",
-        "tab_record": "🎬 RECORD",
-        "tab_scheduler": "📅 SCHEDULER",
-        "tab_profiles": "⭐ PROFILES",
-        "tab_settings": "⚙ SETTINGS",
-        "tab_logs": "📋 LOGS",
-        "channel_placeholder": "Channel name",
-        "quality_auto": "auto",
-        "quality_best": "best",
-        "folder_placeholder": "Save folder",
-        "folder_select": "📁 Browse",
-        "shutdown_option": "Shutdown computer when stream ends",
-        "close_app_option": "Close app when stream ends",
-        "button_start": "▶ START",
-        "button_stop": "⏹ STOP",
-        "button_history": "📜 History",
-        "button_update": "🔄 Update",
-        "status_ready": "READY",
-        "status_waiting": "WAITING",
-        "status_online": "🔴 RECORDING",
-        "status_offline": "⚫ OFFLINE",
-        "status_stopped": "⏸ STOPPED",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "Program started",
-        "scheduler_empty": "No schedule",
-        "profile_saved": "✅ Profile saved successfully!",
-        "profile_added": "✅ Profile added: {}",
-        "profile_deleted": "❌ Profile deleted: {}",
-        "profile_exists": "⚠ {} already in profiles",
-        "error_channel": "Please enter channel name",
-        "error_folder": "Please select save folder",
-        "error_time": "Invalid time format! Example: 14:30",
-        "error_days": "Please select at least one day!",
-        "error_no_selection": "Please select a schedule!",
-        "shutdown_active": "Shutdown after stream ACTIVE",
-        "close_app_active": "Close app after stream ACTIVE",
-        "shutdown_cancel": "Shutdown cancelled",
-        "close_app_cancel": "App close cancelled",
-        "lang_detected": "🌍 System language detected: {}",
-        "log_scheduler": "Scheduler started",
-        "log_instruction": "Enter channel name and click START",
-        "profiles_title": "Saved Channels",
-        "profiles_list": "Channels",
-        "profile_channel": "Channel Name:",
-        "profile_folder": "Folder:",
-        "profile_save": "💾 Save",
-        "profile_delete": "🗑 Delete",
-        "theme_label": "Theme",
-        "theme_dark": "Dark",
-        "theme_light": "Light",
-        "theme_system": "System",
-        "language_label": "Language",
-        "scheduler_channel": "Channel",
-        "scheduler_time": "Time",
-        "scheduler_days": "Days",
-        "scheduler_add": "➕ Add",
-        "scheduler_delete": "❌ Delete",
-        "scheduler_stop": "⏹ Stop Recording",
-        "scheduler_list": "Scheduled Records",
-        "active_profile": "✅ SELECTED",
-    },
-    "Deutsch": {
-        "app_title": "Kick Live Stream Recorder",
-        "tab_record": "🎬 AUFNAHME",
-        "tab_scheduler": "📅 PLANER",
-        "tab_profiles": "⭐ PROFIL",
-        "tab_settings": "⚙ EINSTELLUNGEN",
-        "tab_logs": "📋 PROTOKOLL",
-        "channel_placeholder": "Kanalname",
-        "quality_auto": "auto",
-        "quality_best": "beste",
-        "folder_placeholder": "Speicherordner",
-        "folder_select": "📁 Wählen",
-        "shutdown_option": "Computer ausschalten",
-        "close_app_option": "App schließen",
-        "button_start": "▶ START",
-        "button_stop": "⏹ STOP",
-        "button_history": "📜 Verlauf",
-        "button_update": "🔄 Update",
-        "status_ready": "BEREIT",
-        "status_waiting": "WARTEN",
-        "status_online": "🔴 AUFNAHME",
-        "status_offline": "⚫ OFFLINE",
-        "status_stopped": "⏸ GESTOPPT",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "Programm gestartet",
-        "scheduler_empty": "Keine Pläne",
-        "profile_saved": "✅ Profil erfolgreich gespeichert!",
-        "profile_added": "✅ Profil hinzugefügt: {}",
-        "profile_deleted": "❌ Profil gelöscht: {}",
-        "profile_exists": "⚠ {} bereits in Profilen",
-        "error_channel": "Bitte Kanalnamen eingeben",
-        "error_folder": "Bitte Speicherordner wählen",
-        "error_time": "Ungültiges Zeitformat! Beispiel: 14:30",
-        "error_days": "Bitte mindestens einen Tag auswählen!",
-        "error_no_selection": "Bitte einen Plan auswählen!",
-        "shutdown_active": "Ausschalten nach Stream AKTIV",
-        "close_app_active": "App schließen nach Stream AKTIV",
-        "shutdown_cancel": "Ausschalten abgebrochen",
-        "close_app_cancel": "Schließen abgebrochen",
-        "lang_detected": "🌍 Systemsprache erkannt: {}",
-        "log_scheduler": "Planer gestartet",
-        "log_instruction": "Kanalnamen eingeben und START klicken",
-        "profiles_title": "Gespeicherte Kanäle",
-        "profiles_list": "Profile",
-        "profile_channel": "Kanalname:",
-        "profile_folder": "Ordner:",
-        "profile_save": "💾 Speichern",
-        "profile_delete": "🗑 Löschen",
-        "theme_label": "Design",
-        "theme_dark": "Dunkel",
-        "theme_light": "Hell",
-        "theme_system": "System",
-        "language_label": "Sprache",
-        "scheduler_channel": "Kanal",
-        "scheduler_time": "Uhrzeit",
-        "scheduler_days": "Tage",
-        "scheduler_add": "➕ Hinzufügen",
-        "scheduler_delete": "❌ Löschen",
-        "scheduler_stop": "⏹ Aufnahme stoppen",
-        "scheduler_list": "Geplante Aufnahmen",
-        "active_profile": "✅ AUSGEWÄHLT",
-    },
-    "Français": {
-        "app_title": "Kick Live Stream Recorder",
-        "tab_record": "🎬 ENREGISTREMENT",
-        "tab_scheduler": "📅 PLANIFICATEUR",
-        "tab_profiles": "⭐ PROFILS",
-        "tab_settings": "⚙ PARAMÈTRES",
-        "tab_logs": "📋 JOURNAUX",
-        "channel_placeholder": "Nom de la chaîne",
-        "quality_auto": "auto",
-        "quality_best": "meilleure",
-        "folder_placeholder": "Dossier de sauvegarde",
-        "folder_select": "📁 Choisir",
-        "shutdown_option": "Éteindre l'ordinateur",
-        "close_app_option": "Fermer l'application",
-        "button_start": "▶ DÉMARRER",
-        "button_stop": "⏹ ARRÊTER",
-        "button_history": "📜 Historique",
-        "button_update": "🔄 Mettre à jour",
-        "status_ready": "PRÊT",
-        "status_waiting": "ATTENTE",
-        "status_online": "🔴 ENREGISTREMENT",
-        "status_offline": "⚫ HORS LIGNE",
-        "status_stopped": "⏸ ARRÊTÉ",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "Programme démarré",
-        "scheduler_empty": "Aucun plan",
-        "profile_saved": "✅ Profil enregistré avec succès!",
-        "profile_added": "✅ Profil ajouté: {}",
-        "profile_deleted": "❌ Profil supprimé: {}",
-        "profile_exists": "⚠ {} déjà dans les profils",
-        "error_channel": "Veuillez entrer le nom de la chaîne",
-        "error_folder": "Veuillez sélectionner le dossier de sauvegarde",
-        "error_time": "Format d'heure invalide! Exemple: 14:30",
-        "error_days": "Veuillez sélectionner au moins un jour!",
-        "error_no_selection": "Veuillez sélectionner un plan!",
-        "shutdown_active": "Extinction après stream ACTIVE",
-        "close_app_active": "Fermeture après stream ACTIVE",
-        "shutdown_cancel": "Extinction annulée",
-        "close_app_cancel": "Fermeture annulée",
-        "lang_detected": "🌍 Langue système détectée: {}",
-        "log_scheduler": "Planificateur démarré",
-        "log_instruction": "Entrez le nom de la chaîne et cliquez sur DÉMARRER",
-        "profiles_title": "Chaînes enregistrées",
-        "profiles_list": "Profils",
-        "profile_channel": "Nom de la chaîne:",
-        "profile_folder": "Dossier:",
-        "profile_save": "💾 Enregistrer",
-        "profile_delete": "🗑 Supprimer",
-        "theme_label": "Thème",
-        "theme_dark": "Sombre",
-        "theme_light": "Clair",
-        "theme_system": "Système",
-        "language_label": "Langue",
-        "scheduler_channel": "Chaîne",
-        "scheduler_time": "Heure",
-        "scheduler_days": "Jours",
-        "scheduler_add": "➕ Ajouter",
-        "scheduler_delete": "❌ Supprimer",
-        "scheduler_stop": "⏹ Arrêter l'enregistrement",
-        "scheduler_list": "Enregistrements planifiés",
-        "active_profile": "✅ SÉLECTIONNÉ",
-    },
-    "Español": {
-        "app_title": "Kick Live Stream Recorder",
-        "tab_record": "🎬 GRABACIÓN",
-        "tab_scheduler": "📅 PROGRAMADOR",
-        "tab_profiles": "⭐ PERFILES",
-        "tab_settings": "⚙ AJUSTES",
-        "tab_logs": "📋 REGISTROS",
-        "channel_placeholder": "Nombre del canal",
-        "quality_auto": "auto",
-        "quality_best": "mejor",
-        "folder_placeholder": "Carpeta de guardado",
-        "folder_select": "📁 Seleccionar",
-        "shutdown_option": "Apagar la PC",
-        "close_app_option": "Cerrar la aplicación",
-        "button_start": "▶ INICIAR",
-        "button_stop": "⏹ DETENER",
-        "button_history": "📜 Historial",
-        "button_update": "🔄 Actualizar",
-        "status_ready": "LISTO",
-        "status_waiting": "ESPERANDO",
-        "status_online": "🔴 GRABANDO",
-        "status_offline": "⚫ DESCONECTADO",
-        "status_stopped": "⏸ DETENIDO",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "Programa iniciado",
-        "scheduler_empty": "Sin programación",
-        "profile_saved": "✅ Perfil guardado exitosamente!",
-        "profile_added": "✅ Perfil agregado: {}",
-        "profile_deleted": "❌ Perfil eliminado: {}",
-        "profile_exists": "⚠ {} ya está en perfiles",
-        "error_channel": "Por favor ingrese nombre del canal",
-        "error_folder": "Por favor seleccione carpeta de guardado",
-        "error_time": "Formato de hora inválido! Ejemplo: 14:30",
-        "error_days": "Por favor seleccione al menos un día!",
-        "error_no_selection": "Por favor seleccione un plan!",
-        "shutdown_active": "Apagado después del stream ACTIVO",
-        "close_app_active": "Cierre después del stream ACTIVO",
-        "shutdown_cancel": "Apagado cancelado",
-        "close_app_cancel": "Cierre cancelado",
-        "lang_detected": "🌍 Idioma del sistema detectado: {}",
-        "log_scheduler": "Programador iniciado",
-        "log_instruction": "Ingrese nombre del canal y haga clic en INICIAR",
-        "profiles_title": "Canales guardados",
-        "profiles_list": "Perfiles",
-        "profile_channel": "Nombre del canal:",
-        "profile_folder": "Carpeta:",
-        "profile_save": "💾 Guardar",
-        "profile_delete": "🗑 Eliminar",
-        "theme_label": "Tema",
-        "theme_dark": "Oscuro",
-        "theme_light": "Claro",
-        "theme_system": "Sistema",
-        "language_label": "Idioma",
-        "scheduler_channel": "Canal",
-        "scheduler_time": "Hora",
-        "scheduler_days": "Días",
-        "scheduler_add": "➕ Agregar",
-        "scheduler_delete": "❌ Eliminar",
-        "scheduler_stop": "⏹ Detener Grabación",
-        "scheduler_list": "Grabaciones programadas",
-        "active_profile": "✅ SELECCIONADO",
-    },
-    "Italiano": {
-        "app_title": "Kick Live Stream Recorder",
-        "tab_record": "🎬 REGISTRAZIONE",
-        "tab_scheduler": "📅 PIANIFICATORE",
-        "tab_profiles": "⭐ PROFILI",
-        "tab_settings": "⚙ IMPOSTAZIONI",
-        "tab_logs": "📋 REGISTRI",
-        "channel_placeholder": "Nome canale",
-        "quality_auto": "auto",
-        "quality_best": "migliore",
-        "folder_placeholder": "Cartella salvataggio",
-        "folder_select": "📁 Scegli",
-        "shutdown_option": "Spegni PC",
-        "close_app_option": "Chiudi app",
-        "button_start": "▶ AVVIA",
-        "button_stop": "⏹ FERMA",
-        "button_history": "📜 Cronologia",
-        "button_update": "🔄 Aggiorna",
-        "status_ready": "PRONTO",
-        "status_waiting": "IN ATTESA",
-        "status_online": "🔴 REGISTRAZIONE",
-        "status_offline": "⚫ OFFLINE",
-        "status_stopped": "⏸ FERMATO",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "Programma avviato",
-        "scheduler_empty": "Nessuna pianificazione",
-        "profile_saved": "✅ Profilo salvato con successo!",
-        "profile_added": "✅ Profilo aggiunto: {}",
-        "profile_deleted": "❌ Profilo eliminato: {}",
-        "profile_exists": "⚠ {} già nei profili",
-        "error_channel": "Inserisci nome canale",
-        "error_folder": "Seleziona cartella salvataggio",
-        "error_time": "Formato ora non valido! Esempio: 14:30",
-        "error_days": "Seleziona almeno un giorno!",
-        "error_no_selection": "Seleziona un piano!",
-        "shutdown_active": "Spegnimento dopo stream ATTIVO",
-        "close_app_active": "Chiusura app dopo stream ATTIVA",
-        "shutdown_cancel": "Spegnimento annullato",
-        "close_app_cancel": "Chiusura annullata",
-        "lang_detected": "🌍 Lingua di sistema rilevata: {}",
-        "log_scheduler": "Pianificatore avviato",
-        "log_instruction": "Inserisci nome canale e clicca AVVIA",
-        "profiles_title": "Canali salvati",
-        "profiles_list": "Profili",
-        "profile_channel": "Nome canale:",
-        "profile_folder": "Cartella:",
-        "profile_save": "💾 Salva",
-        "profile_delete": "🗑 Elimina",
-        "theme_label": "Tema",
-        "theme_dark": "Scuro",
-        "theme_light": "Chiaro",
-        "theme_system": "Sistema",
-        "language_label": "Lingua",
-        "scheduler_channel": "Canale",
-        "scheduler_time": "Ora",
-        "scheduler_days": "Giorni",
-        "scheduler_add": "➕ Aggiungi",
-        "scheduler_delete": "❌ Elimina",
-        "scheduler_stop": "⏹ Ferma Registrazione",
-        "scheduler_list": "Registrazioni pianificate",
-        "active_profile": "✅ SELEZIONATO",
-    },
-    "Português": {
-        "app_title": "Kick Live Stream Recorder",
-        "tab_record": "🎬 GRAVAÇÃO",
-        "tab_scheduler": "📅 AGENDADOR",
-        "tab_profiles": "⭐ PERFIS",
-        "tab_settings": "⚙ CONFIGURAÇÕES",
-        "tab_logs": "📋 REGISTROS",
-        "channel_placeholder": "Nome do canal",
-        "quality_auto": "auto",
-        "quality_best": "melhor",
-        "folder_placeholder": "Pasta de salvamento",
-        "folder_select": "📁 Escolher",
-        "shutdown_option": "Desligar PC",
-        "close_app_option": "Fechar app",
-        "button_start": "▶ INICIAR",
-        "button_stop": "⏹ PARAR",
-        "button_history": "📜 Histórico",
-        "button_update": "🔄 Atualizar",
-        "status_ready": "PRONTO",
-        "status_waiting": "AGUARDANDO",
-        "status_online": "🔴 GRAVANDO",
-        "status_offline": "⚫ OFFLINE",
-        "status_stopped": "⏸ PARADO",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "Programa iniciado",
-        "scheduler_empty": "Sem agendamento",
-        "profile_saved": "✅ Perfil salvo com sucesso!",
-        "profile_added": "✅ Perfil adicionado: {}",
-        "profile_deleted": "❌ Perfil excluído: {}",
-        "profile_exists": "⚠ {} já está nos perfis",
-        "error_channel": "Digite nome do canal",
-        "error_folder": "Selecione pasta de salvamento",
-        "error_time": "Formato de horário inválido! Exemplo: 14:30",
-        "error_days": "Selecione pelo menos um dia!",
-        "error_no_selection": "Selecione um plano!",
-        "shutdown_active": "Desligar após stream ATIVO",
-        "close_app_active": "Fechar app após stream ATIVA",
-        "shutdown_cancel": "Desligamento cancelado",
-        "close_app_cancel": "Fechamento cancelado",
-        "lang_detected": "🌍 Idioma do sistema detectado: {}",
-        "log_scheduler": "Agendador iniciado",
-        "log_instruction": "Digite nome do canal e clique em INICIAR",
-        "profiles_title": "Canais salvos",
-        "profiles_list": "Perfis",
-        "profile_channel": "Nome do canal:",
-        "profile_folder": "Pasta:",
-        "profile_save": "💾 Salvar",
-        "profile_delete": "🗑 Excluir",
-        "theme_label": "Tema",
-        "theme_dark": "Escuro",
-        "theme_light": "Claro",
-        "theme_system": "Sistema",
-        "language_label": "Idioma",
-        "scheduler_channel": "Canal",
-        "scheduler_time": "Horário",
-        "scheduler_days": "Dias",
-        "scheduler_add": "➕ Adicionar",
-        "scheduler_delete": "❌ Excluir",
-        "scheduler_stop": "⏹ Parar Gravação",
-        "scheduler_list": "Gravações agendadas",
-        "active_profile": "✅ SELECIONADO",
-    },
-    "Русский": {
-        "app_title": "Kick Live Stream Recorder",
-        "tab_record": "🎬 ЗАПИСЬ",
-        "tab_scheduler": "📅 ПЛАНИРОВЩИК",
-        "tab_profiles": "⭐ ПРОФИЛИ",
-        "tab_settings": "⚙ НАСТРОЙКИ",
-        "tab_logs": "📋 ЖУРНАЛЫ",
-        "channel_placeholder": "Название канала",
-        "quality_auto": "авто",
-        "quality_best": "лучшее",
-        "folder_placeholder": "Папка сохранения",
-        "folder_select": "📁 Выбрать",
-        "shutdown_option": "Выключить ПК",
-        "close_app_option": "Закрыть приложение",
-        "button_start": "▶ СТАРТ",
-        "button_stop": "⏹ СТОП",
-        "button_history": "📜 История",
-        "button_update": "🔄 Обновить",
-        "status_ready": "ГОТОВ",
-        "status_waiting": "ОЖИДАНИЕ",
-        "status_online": "🔴 ЗАПИСЬ",
-        "status_offline": "⚫ ОФФЛАЙН",
-        "status_stopped": "⏸ ОСТАНОВЛЕНО",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "Программа запущена",
-        "scheduler_empty": "Нет планов",
-        "profile_saved": "✅ Профиль успешно сохранен!",
-        "profile_added": "✅ Профиль добавлен: {}",
-        "profile_deleted": "❌ Профиль удален: {}",
-        "profile_exists": "⚠ {} уже в профилях",
-        "error_channel": "Введите название канала",
-        "error_folder": "Выберите папку сохранения",
-        "error_time": "Неверный формат времени! Пример: 14:30",
-        "error_days": "Выберите хотя бы один день!",
-        "error_no_selection": "Выберите план!",
-        "shutdown_active": "Выключение после стрима АКТИВНО",
-        "close_app_active": "Закрытие после стрима АКТИВНО",
-        "shutdown_cancel": "Выключение отменено",
-        "close_app_cancel": "Закрытие отменено",
-        "lang_detected": "🌍 Обнаружен системный язык: {}",
-        "log_scheduler": "Планировщик запущен",
-        "log_instruction": "Введите название канала и нажмите СТАРТ",
-        "profiles_title": "Сохраненные каналы",
-        "profiles_list": "Профили",
-        "profile_channel": "Название канала:",
-        "profile_folder": "Папка:",
-        "profile_save": "💾 Сохранить",
-        "profile_delete": "🗑 Удалить",
-        "theme_label": "Тема",
-        "theme_dark": "Тёмная",
-        "theme_light": "Светлая",
-        "theme_system": "Системная",
-        "language_label": "Язык",
-        "scheduler_channel": "Канал",
-        "scheduler_time": "Время",
-        "scheduler_days": "Дни",
-        "scheduler_add": "➕ Добавить",
-        "scheduler_delete": "❌ Удалить",
-        "scheduler_stop": "⏹ Остановить запись",
-        "scheduler_list": "Запланированные записи",
-        "active_profile": "✅ ВЫБРАН",
-    },
-    "日本語": {
-        "app_title": "Kickライブストリームレコーダー",
-        "tab_record": "🎬 録画",
-        "tab_scheduler": "📅 予約",
-        "tab_profiles": "⭐ プロフィール",
-        "tab_settings": "⚙ 設定",
-        "tab_logs": "📋 ログ",
-        "channel_placeholder": "チャンネル名",
-        "quality_auto": "自動",
-        "quality_best": "最高",
-        "folder_placeholder": "保存先",
-        "folder_select": "📁 選択",
-        "shutdown_option": "PCをシャットダウン",
-        "close_app_option": "アプリを閉じる",
-        "button_start": "▶ 開始",
-        "button_stop": "⏹ 停止",
-        "button_history": "📜 履歴",
-        "button_update": "🔄 更新",
-        "status_ready": "準備完了",
-        "status_waiting": "待機中",
-        "status_online": "🔴 録画中",
-        "status_offline": "⚫ オフライン",
-        "status_stopped": "⏸ 停止",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "プログラム起動",
-        "scheduler_empty": "予約なし",
-        "profile_saved": "✅ プロフィールを保存しました！",
-        "profile_added": "✅ プロフィール追加: {}",
-        "profile_deleted": "❌ プロフィール削除: {}",
-        "profile_exists": "⚠ {} は既に登録されています",
-        "error_channel": "チャンネル名を入力してください",
-        "error_folder": "保存先を選択してください",
-        "error_time": "時刻形式が無効です！例: 14:30",
-        "error_days": "少なくとも1日を選択してください！",
-        "error_no_selection": "予約を選択してください！",
-        "shutdown_active": "終了時シャットダウンON",
-        "close_app_active": "終了時アプリ終了ON",
-        "shutdown_cancel": "シャットダウンキャンセル",
-        "close_app_cancel": "アプリ終了キャンセル",
-        "lang_detected": "🌍 システム言語を検出: {}",
-        "log_scheduler": "予約開始",
-        "log_instruction": "チャンネル名を入力して開始をクリック",
-        "profiles_title": "保存されたチャンネル",
-        "profiles_list": "プロフィール",
-        "profile_channel": "チャンネル名:",
-        "profile_folder": "フォルダ:",
-        "profile_save": "💾 保存",
-        "profile_delete": "🗑 削除",
-        "theme_label": "テーマ",
-        "theme_dark": "ダーク",
-        "theme_light": "ライト",
-        "theme_system": "システム",
-        "language_label": "言語",
-        "scheduler_channel": "チャンネル",
-        "scheduler_time": "時刻",
-        "scheduler_days": "曜日",
-        "scheduler_add": "➕ 追加",
-        "scheduler_delete": "❌ 削除",
-        "scheduler_stop": "⏹ 録画停止",
-        "scheduler_list": "予約リスト",
-        "active_profile": "✅ 選択中",
-    },
-    "한국어": {
-        "app_title": "Kick 라이브 스트림 레코더",
-        "tab_record": "🎬 녹화",
-        "tab_scheduler": "📅 예약",
-        "tab_profiles": "⭐ 프로필",
-        "tab_settings": "⚙ 설정",
-        "tab_logs": "📋 로그",
-        "channel_placeholder": "채널명",
-        "quality_auto": "자동",
-        "quality_best": "최고",
-        "folder_placeholder": "저장 폴더",
-        "folder_select": "📁 선택",
-        "shutdown_option": "PC 종료",
-        "close_app_option": "앱 종료",
-        "button_start": "▶ 시작",
-        "button_stop": "⏹ 중지",
-        "button_history": "📜 기록",
-        "button_update": "🔄 업데이트",
-        "status_ready": "준비",
-        "status_waiting": "대기중",
-        "status_online": "🔴 녹화중",
-        "status_offline": "⚫ 오프라인",
-        "status_stopped": "⏸ 중지됨",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "프로그램 시작",
-        "scheduler_empty": "예약 없음",
-        "profile_saved": "✅ 프로필이 저장되었습니다!",
-        "profile_added": "✅ 프로필 추가됨: {}",
-        "profile_deleted": "❌ 프로필 삭제됨: {}",
-        "profile_exists": "⚠ {} 이미 프로필에 있음",
-        "error_channel": "채널명을 입력하세요",
-        "error_folder": "저장 폴더를 선택하세요",
-        "error_time": "시간 형식이 잘못되었습니다! 예: 14:30",
-        "error_days": "최소 하나의 요일을 선택하세요!",
-        "error_no_selection": "예약을 선택하세요!",
-        "shutdown_active": "종료 시 PC 종료 활성화",
-        "close_app_active": "종료 시 앱 종료 활성화",
-        "shutdown_cancel": "PC 종료 취소",
-        "close_app_cancel": "앱 종료 취소",
-        "lang_detected": "🌍 시스템 언어 감지됨: {}",
-        "log_scheduler": "예약 시작",
-        "log_instruction": "채널명 입력 후 시작 클릭",
-        "profiles_title": "저장된 채널",
-        "profiles_list": "프로필",
-        "profile_channel": "채널명:",
-        "profile_folder": "폴더:",
-        "profile_save": "💾 저장",
-        "profile_delete": "🗑 삭제",
-        "theme_label": "테마",
-        "theme_dark": "다크",
-        "theme_light": "라이트",
-        "theme_system": "시스템",
-        "language_label": "언어",
-        "scheduler_channel": "채널",
-        "scheduler_time": "시간",
-        "scheduler_days": "요일",
-        "scheduler_add": "➕ 추가",
-        "scheduler_delete": "❌ 삭제",
-        "scheduler_stop": "⏹ 녹화 중지",
-        "scheduler_list": "예약 목록",
-        "active_profile": "✅ 선택됨",
-    },
-    "中文": {
-        "app_title": "Kick直播录制器",
-        "tab_record": "🎬 录制",
-        "tab_scheduler": "📅 预约",
-        "tab_profiles": "⭐ 配置文件",
-        "tab_settings": "⚙ 设置",
-        "tab_logs": "📋 日志",
-        "channel_placeholder": "频道名称",
-        "quality_auto": "自动",
-        "quality_best": "最佳",
-        "folder_placeholder": "保存文件夹",
-        "folder_select": "📁 选择",
-        "shutdown_option": "关闭电脑",
-        "close_app_option": "关闭应用",
-        "button_start": "▶ 开始",
-        "button_stop": "⏹ 停止",
-        "button_history": "📜 历史",
-        "button_update": "🔄 更新",
-        "status_ready": "就绪",
-        "status_waiting": "等待中",
-        "status_online": "🔴 录制中",
-        "status_offline": "⚫ 离线",
-        "status_stopped": "⏸ 已停止",
-        "timer": "⏱",
-        "filesize": "💾",
-        "log_start": "程序已启动",
-        "scheduler_empty": "无预约",
-        "profile_saved": "✅ 配置已保存！",
-        "profile_added": "✅ 配置已添加: {}",
-        "profile_deleted": "❌ 配置已删除: {}",
-        "profile_exists": "⚠ {} 已存在",
-        "error_channel": "请输入频道名称",
-        "error_folder": "请选择保存文件夹",
-        "error_time": "时间格式无效！示例: 14:30",
-        "error_days": "请至少选择一个星期！",
-        "error_no_selection": "请选择一个预约！",
-        "shutdown_active": "结束后关机已激活",
-        "close_app_active": "结束后关闭应用已激活",
-        "shutdown_cancel": "关机已取消",
-        "close_app_cancel": "关闭已取消",
-        "lang_detected": "🌍 检测到系统语言: {}",
-        "log_scheduler": "预约开始",
-        "log_instruction": "输入频道名称并点击开始",
-        "profiles_title": "已保存频道",
-        "profiles_list": "配置文件",
-        "profile_channel": "频道名称:",
-        "profile_folder": "文件夹:",
-        "profile_save": "💾 保存",
-        "profile_delete": "🗑 删除",
-        "theme_label": "主题",
-        "theme_dark": "深色",
-        "theme_light": "浅色",
-        "theme_system": "系统",
-        "language_label": "语言",
-        "scheduler_channel": "频道",
-        "scheduler_time": "时间",
-        "scheduler_days": "星期",
-        "scheduler_add": "➕ 添加",
-        "scheduler_delete": "❌ 删除",
-        "scheduler_stop": "⏹ 停止录制",
-        "scheduler_list": "预约列表",
-        "active_profile": "✅ 已选择",
-    }
-}
-
+LANGUAGES    = _load_languages()
 current_lang = detect_system_language()
-
-# Kaydedilmiş dili yükle
 try:
-    with open("language.json", "r", encoding="utf-8") as f:
-        saved = json.load(f)
-        if saved.get("language") in LANGUAGES:
-            current_lang = saved.get("language")
-            print(f"💾 Kaydedilmiş dil yüklendi: {current_lang}")
-except:
-    pass
+    with open(LANG_SEL_FILE,"r",encoding="utf-8") as _f:
+        _s = json.load(_f)
+        if _s.get("language") in LANGUAGES: current_lang = _s["language"]
+except: pass
+if current_lang not in LANGUAGES: current_lang = "Türkçe"
 
-if current_lang not in LANGUAGES:
-    current_lang = "Türkçe"
+def _(key:str) -> str:
+    return LANGUAGES[current_lang].get(key) or LANGUAGES.get("Türkçe",{}).get(key,key)
 
-def _(key):
-    return LANGUAGES[current_lang].get(key, LANGUAGES["Türkçe"].get(key, key))
+# ─── BİLDİRİM ─────────────────────────────────────────────────────────────────
+def send_notification(title:str, message:str):
+    if not PLYER_OK: return
+    try: _plyer_notif.notify(title=title,message=message,app_name=f"Kick Recorder {VERSION}",timeout=6)
+    except Exception as e: log.debug(f"Bildirim hatası: {e}")
 
-# ---------- KONSOL LOG FONKSİYONU ----------
-def console_log(msg, renk="beyaz"):
-    now = datetime.datetime.now().strftime("%H:%M:%S")
-    renk_kodlari = {
-        "green": Renkler.YESIL,
-        "red": Renkler.KIRMIZI,
-        "orange": Renkler.SARI,
-        "cyan": Renkler.TURKUAZ,
-        "white": Renkler.BEYAZ,
-        "blue": Renkler.MAVI,
-        "purple": Renkler.MOR
-    }
-    cmd_renk = renk_kodlari.get(renk, Renkler.BEYAZ)
-    print(f"{cmd_renk}[{now}] {msg}{Renkler.SON}")
+# ─── BAĞIMLILIK KONTROLÜ ──────────────────────────────────────────────────────
+def check_dependencies() -> list[str]:
+    missing = []
+    try:
+        r = subprocess.run(["streamlink","--version"],capture_output=True,text=True,timeout=5)
+        if r.returncode != 0: missing.append("streamlink")
+    except (FileNotFoundError,subprocess.TimeoutExpired):
+        missing.append("streamlink")
+    return missing
 
-# ---------- MODERN ANİMASYONLU BUTON SINIFI ----------
-class AnimatedButton(ctk.CTkButton):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
-        self.bind("<Enter>", self.on_enter)
-        self.bind("<Leave>", self.on_leave)
-        self.default_color = self.cget("fg_color")
-        
-    def on_enter(self, event):
-        if isinstance(self.default_color, tuple):
-            new_color = tuple(min(255, int(c * 1.2)) for c in self.default_color)
-            self.configure(fg_color=new_color)
-        else:
-            self.configure(fg_color=self.default_color)
-        
-    def on_leave(self, event):
-        self.configure(fg_color=self.default_color)
+# ─── RECORD MANAGER ───────────────────────────────────────────────────────────
+class RecordManager:
+    _BACKOFF_BASE = 10
+    _BACKOFF_MAX  = 300
 
-# ---------- MODERN CARD FRAME SINIFI ----------
-class CardFrame(ctk.CTkFrame):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, corner_radius=15, border_width=0, **kwargs)
-        self.configure(fg_color=("#2b2b2b", "#1e1e1e"))
-
-# ---------- ANA UYGULAMA ----------
-class App(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        
-        self.title(f"{_('app_title')} {VERSION}")
-        self.geometry("1000x950")
-        self.minsize(900, 800)
-        
-        # Değişkenler
+    def __init__(self, on_log, on_status, on_size, on_timer_reset, on_history_saved=None):
+        self._on_log, self._on_status = on_log, on_status
+        self._on_size, self._on_timer_reset = on_size, on_timer_reset
+        self._on_history_saved = on_history_saved  # geçmiş kaydedilince çağrılır
         self.recording = False
-        self.process = None
-        self.start_time = None
-        self.shutdown_after = False
-        self.close_app_after = False
+        self.process: subprocess.Popen | None = None
+        self.start_time: float | None = None
+        self.current_filename: str | None = None
         self.was_recording = False
-        self.current_filename = None
-        self.channel_profiles = []
-        self.active_profile_channel = None
-        self.scheduled_tasks = []
-        
-        # İkon ayarı
-        self.set_app_icon()
-        
-        # Tema ayarı
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
-        
-        # Ana container
-        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_container.pack(fill="both", expand=True, padx=15, pady=15)
-        
-        # Üst bar
-        self.create_title_bar()
-        
-        # Tabview
-        self.create_tabview()
-        
-        # Timer güncelleme
-        self.update_timer()
-        self.update_file_size()
-        
-        # Güncelleme kontrolü
-        threading.Thread(target=self.check_for_updates, daemon=True).start()
-        
-        # Profil listesini her 30 saniyede bir yenile
-        def auto_refresh_profiles():
-            self.update_profiles_list()
-            self.after(30000, auto_refresh_profiles)
-        auto_refresh_profiles()
-        
-        # Kullanıcı verilerini yükle
-        self.load_user_data()
-        
-        # Başlangıç logları
-        self.log(_("lang_detected").format(current_lang), "cyan")
-        self.log(f"🎥 {_('app_title')} {VERSION} {_('log_start')}", "green")
-        self.log("="*50, "white")
-        self.log(f"✅ Tek buton sistemi aktif", "purple")
-        self.log(f"✅ Otomatik kalite seçimi", "cyan")
-        self.log(f"✅ 11 dil desteği!", "cyan")
-        self.log(f"👉 {_('log_instruction')}", "cyan")
-        
-    def create_title_bar(self):
-        title_bar = ctk.CTkFrame(self.main_container, height=60, corner_radius=15, fg_color=("#1a1a1a", "#0d0d0d"))
-        title_bar.pack(fill="x", pady=(0, 15))
-        title_bar.pack_propagate(False)
-        
-        self.title_label = ctk.CTkLabel(title_bar, text=f"🎬 {_('app_title')} {VERSION}", font=ctk.CTkFont(size=20, weight="bold"), text_color="#4CAF50")
-        self.title_label.pack(side="left", padx=20, pady=15)
-        
-        self.status_label = ctk.CTkLabel(title_bar, text=f"● {_('status_ready')}", font=ctk.CTkFont(size=13), text_color="gray")
-        self.status_label.pack(side="right", padx=20)
-        
-    def create_tabview(self):
-        self.tabview = ctk.CTkTabview(self.main_container, corner_radius=15)
-        self.tabview.pack(fill="both", expand=True)
-        
-        # Sekmeleri dinamik isimlerle ekle
-        self.tabview.add(_("tab_record"))
-        self.tabview.add(_("tab_scheduler"))
-        self.tabview.add(_("tab_profiles"))
-        self.tabview.add(_("tab_settings"))
-        self.tabview.add(_("tab_logs"))
-        
-        # Sekme stilleri
-        for tab_name in [_("tab_record"), _("tab_scheduler"), _("tab_profiles"), _("tab_settings"), _("tab_logs")]:
-            self.tabview.tab(tab_name).configure(fg_color=("#2d2d2d", "#1e1e1e"))
-        
-        self.create_record_tab()
-        self.create_scheduler_tab()
-        self.create_profiles_tab()
-        self.create_settings_tab()
-        self.create_logs_tab()
-        
-    def create_record_tab(self):
-        record_tab = self.tabview.tab(_("tab_record"))
-        main_card = CardFrame(record_tab)
-        main_card.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Kanal girişi
-        self.channel_label = ctk.CTkLabel(main_card, text="📺 KANAL ADI", font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        self.channel_label.pack(anchor="w", padx=30, pady=(20, 5))
-        
-        self.channel_entry = ctk.CTkEntry(main_card, placeholder_text=_("channel_placeholder"), height=45, font=ctk.CTkFont(size=14), corner_radius=10)
-        self.channel_entry.pack(fill="x", padx=30, pady=(0, 15))
-        
-        # Kalite
-        self.quality_label = ctk.CTkLabel(main_card, text="⚙ KALİTE", font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        self.quality_label.pack(anchor="w", padx=30, pady=(0, 5))
-        
-        self.quality_menu = ctk.CTkOptionMenu(main_card, values=[_("quality_auto"), "best", "1080p", "720p", "480p"], height=40, corner_radius=10)
-        self.quality_menu.set(_("quality_auto"))
-        self.quality_menu.pack(fill="x", padx=30, pady=(0, 15))
-        
-        # Klasör
-        self.folder_label = ctk.CTkLabel(main_card, text="📁 KAYIT KLASÖRÜ", font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        self.folder_label.pack(anchor="w", padx=30, pady=(0, 5))
-        
-        folder_frame = ctk.CTkFrame(main_card, fg_color="transparent")
-        folder_frame.pack(fill="x", padx=30, pady=(0, 15))
-        
-        self.folder_entry = ctk.CTkEntry(folder_frame, placeholder_text=_("folder_placeholder"), height=40, corner_radius=10)
-        self.folder_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        
-        self.folder_button = AnimatedButton(folder_frame, text=_("folder_select"), width=80, height=40, corner_radius=10, fg_color="#2196F3")
-        self.folder_button.configure(command=self.select_folder)
-        self.folder_button.pack(side="right")
-        
-        # Seçenekler
-        options_frame = ctk.CTkFrame(main_card, fg_color="transparent")
-        options_frame.pack(fill="x", padx=30, pady=10)
-        
-        self.shutdown_var = ctk.BooleanVar(value=False)
-        self.close_app_var = ctk.BooleanVar(value=False)
-        
-        self.shutdown_check = ctk.CTkCheckBox(options_frame, text=_("shutdown_option"), variable=self.shutdown_var, command=self.on_shutdown_toggle)
-        self.shutdown_check.pack(anchor="w", pady=5)
-        self.close_app_check = ctk.CTkCheckBox(options_frame, text=_("close_app_option"), variable=self.close_app_var, command=self.on_close_app_toggle)
-        self.close_app_check.pack(anchor="w", pady=5)
-        
-        # Ana buton
-        self.toggle_button = AnimatedButton(main_card, text=_("button_start"), height=60, corner_radius=15, font=ctk.CTkFont(size=18, weight="bold"), fg_color="#4CAF50")
-        self.toggle_button.configure(command=self.toggle_record)
-        self.toggle_button.pack(fill="x", padx=30, pady=20)
-        
-        # Bilgi çubuğu
-        info_bar = ctk.CTkFrame(main_card, height=40, corner_radius=10, fg_color=("#1a1a1a", "#0d0d0d"))
-        info_bar.pack(fill="x", padx=30, pady=(10, 20))
-        info_bar.pack_propagate(False)
-        
-        self.timer_label = ctk.CTkLabel(info_bar, text=f"{_('timer')} 00:00:00", font=ctk.CTkFont(size=14))
-        self.timer_label.pack(side="left", padx=15, pady=10)
-        self.size_label = ctk.CTkLabel(info_bar, text=f"{_('filesize')} -", font=ctk.CTkFont(size=14))
-        self.size_label.pack(side="right", padx=15, pady=10)
-        
-        # Alt butonlar
-        bottom_frame = ctk.CTkFrame(main_card, fg_color="transparent")
-        bottom_frame.pack(fill="x", padx=30, pady=(0, 20))
-        
-        self.history_button = AnimatedButton(bottom_frame, text=_("button_history"), width=120, height=40, corner_radius=10, fg_color="#9C27B0")
-        self.history_button.configure(command=self.show_history)
-        self.history_button.pack(side="left", padx=5)
-        
-        self.update_button = AnimatedButton(bottom_frame, text=_("button_update"), width=120, height=40, corner_radius=10, fg_color="#FF9800")
-        self.update_button.configure(command=lambda: threading.Thread(target=self.check_for_updates, daemon=True).start())
-        self.update_button.pack(side="left", padx=5)
-        
-    def create_scheduler_tab(self):
-        scheduler_tab = self.tabview.tab(_("tab_scheduler"))
-        main_card = CardFrame(scheduler_tab)
-        main_card.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        add_frame = ctk.CTkFrame(main_card, fg_color="transparent")
-        add_frame.pack(fill="x", padx=20, pady=20)
-        
-        self.scheduler_channel_label = ctk.CTkLabel(add_frame, text=_("scheduler_channel"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        self.scheduler_channel_label.pack(anchor="w")
-        self.scheduler_channel_entry = ctk.CTkEntry(add_frame, height=40, corner_radius=10)
-        self.scheduler_channel_entry.pack(fill="x", pady=(0, 10))
-        
-        self.scheduler_time_label = ctk.CTkLabel(add_frame, text=_("scheduler_time"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        self.scheduler_time_label.pack(anchor="w")
-        self.scheduler_time_entry = ctk.CTkEntry(add_frame, height=40, corner_radius=10, placeholder_text="14:30")
-        self.scheduler_time_entry.pack(fill="x", pady=(0, 10))
-        
-        self.scheduler_days_label = ctk.CTkLabel(add_frame, text=_("scheduler_days"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        self.scheduler_days_label.pack(anchor="w")
-        
-        days_frame = ctk.CTkFrame(add_frame, fg_color="transparent")
-        days_frame.pack(fill="x", pady=5)
-        
-        self.day_vars = {}
-        days_list = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
-        for i, day in enumerate(days_list):
-            self.day_vars[day] = ctk.BooleanVar(value=False)
-            cb = ctk.CTkCheckBox(days_frame, text=day, variable=self.day_vars[day])
-            cb.grid(row=i//3, column=i%3, padx=10, pady=5, sticky="w")
-        
-        btn_frame = ctk.CTkFrame(add_frame, fg_color="transparent")
-        btn_frame.pack(fill="x", pady=15)
-        
-        self.scheduler_add_button = AnimatedButton(btn_frame, text=_("scheduler_add"), width=100, height=35, corner_radius=8, fg_color="#4CAF50")
-        self.scheduler_add_button.configure(command=self.add_scheduled_record)
-        self.scheduler_add_button.pack(side="left", padx=5)
-        
-        self.scheduler_delete_button = AnimatedButton(btn_frame, text=_("scheduler_delete"), width=100, height=35, corner_radius=8, fg_color="#f44336")
-        self.scheduler_delete_button.configure(command=self.delete_scheduled_record)
-        self.scheduler_delete_button.pack(side="left", padx=5)
-        
-        self.scheduler_stop_button = AnimatedButton(btn_frame, text=_("scheduler_stop"), width=120, height=35, corner_radius=8, fg_color="#FF9800")
-        self.scheduler_stop_button.configure(command=self.stop_current_recording)
-        self.scheduler_stop_button.pack(side="left", padx=5)
-        
-        self.scheduler_list_title = ctk.CTkLabel(main_card, text=_("scheduler_list"), font=ctk.CTkFont(size=14, weight="bold"), text_color="#4CAF50")
-        self.scheduler_list_title.pack(anchor="w", padx=20, pady=(10, 5))
-        
-        self.scheduler_listbox = ctk.CTkScrollableFrame(main_card, height=250, corner_radius=10)
-        self.scheduler_listbox.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-        self.scheduler_selected_var = ctk.IntVar(value=-1)
-        
-    def create_profiles_tab(self):
-        profiles_tab = self.tabview.tab(_("tab_profiles"))
-        main_card = CardFrame(profiles_tab)
-        main_card.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        add_frame = ctk.CTkFrame(main_card, fg_color="transparent")
-        add_frame.pack(fill="x", padx=20, pady=20)
-        
-        self.profile_channel_label = ctk.CTkLabel(add_frame, text=_("profile_channel"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        self.profile_channel_label.pack(anchor="w")
-        self.profile_channel_entry = ctk.CTkEntry(add_frame, height=40, corner_radius=10)
-        self.profile_channel_entry.pack(fill="x", pady=(0, 10))
-        
-        self.profile_folder_label = ctk.CTkLabel(add_frame, text=_("profile_folder"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#4CAF50")
-        self.profile_folder_label.pack(anchor="w")
-        folder_frame = ctk.CTkFrame(add_frame, fg_color="transparent")
-        folder_frame.pack(fill="x", pady=(0, 10))
-        
-        self.profile_folder_entry = ctk.CTkEntry(folder_frame, placeholder_text=_("folder_placeholder"), height=40, corner_radius=10)
-        self.profile_folder_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        
-        self.profile_folder_button = AnimatedButton(folder_frame, text=_("folder_select"), width=80, height=40, corner_radius=10, fg_color="#2196F3")
-        self.profile_folder_button.configure(command=self.select_profile_folder)
-        self.profile_folder_button.pack(side="right")
-        
-        self.profile_save_button = AnimatedButton(add_frame, text=_("profile_save"), height=40, corner_radius=10, fg_color="#4CAF50")
-        self.profile_save_button.configure(command=self.add_profile)
-        self.profile_save_button.pack(fill="x", pady=10)
-        
-        self.profiles_title = ctk.CTkLabel(main_card, text=_("profiles_title"), font=ctk.CTkFont(size=14, weight="bold"), text_color="#4CAF50")
-        self.profiles_title.pack(anchor="w", padx=20, pady=(10, 5))
-        
-        self.profiles_listbox = ctk.CTkScrollableFrame(main_card, height=300, corner_radius=10)
-        self.profiles_listbox.pack(fill="both", expand=True, padx=20, pady=(0, 10))
-        
-        btn_frame = ctk.CTkFrame(main_card, fg_color="transparent")
-        btn_frame.pack(fill="x", padx=20, pady=(0, 20))
-        
-        self.profiles_delete_button = AnimatedButton(btn_frame, text=_("profile_delete"), width=120, height=40, corner_radius=10, fg_color="#f44336")
-        self.profiles_delete_button.configure(command=self.delete_profile)
-        self.profiles_delete_button.pack(side="left", padx=5)
-        
-    def create_settings_tab(self):
-        settings_tab = self.tabview.tab(_("tab_settings"))
-        main_card = CardFrame(settings_tab)
-        main_card.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        theme_frame = ctk.CTkFrame(main_card, fg_color="transparent")
-        theme_frame.pack(fill="x", padx=30, pady=20)
-        self.theme_label = ctk.CTkLabel(theme_frame, text=_("theme_label"), font=ctk.CTkFont(size=13, weight="bold"))
-        self.theme_label.pack(side="left", padx=10)
-        self.theme_menu = ctk.CTkOptionMenu(theme_frame, values=[_("theme_dark"), _("theme_light"), _("theme_system")], width=120, corner_radius=8)
-        self.theme_menu.set(_("theme_dark"))
-        self.theme_menu.configure(command=self.change_theme)
-        self.theme_menu.pack(side="left", padx=10)
-        
-        lang_frame = ctk.CTkFrame(main_card, fg_color="transparent")
-        lang_frame.pack(fill="x", padx=30, pady=20)
-        self.language_label = ctk.CTkLabel(lang_frame, text=_("language_label"), font=ctk.CTkFont(size=13, weight="bold"))
-        self.language_label.pack(side="left", padx=10)
-        self.lang_menu = ctk.CTkOptionMenu(lang_frame, values=list(LANGUAGES.keys()), width=150, corner_radius=8)
-        self.lang_menu.set(current_lang)
-        self.lang_menu.configure(command=self.change_language)
-        self.lang_menu.pack(side="left", padx=10)
-        
-        info_card = ctk.CTkFrame(main_card, corner_radius=10, fg_color=("#1a1a1a", "#0d0d0d"))
-        info_card.pack(pady=30, padx=30, fill="x")
-        
-        info_text = f"""
-    ╔══════════════════════════════════════════╗
-    ║        KICK CANLI YAYIN KAYDEDİCİ        ║
-    ║                                          ║
-    ║      Versiyon: {VERSION}                    ║
-    ║      Geliştirici: erneman26              ║
-    ║      Dil desteği: 11 dil                 ║
-    ║                                          ║
-    ║      GitHub: github.com/erneman26        ║
-    ╚══════════════════════════════════════════╝
-        """
-        info_label = ctk.CTkLabel(info_card, text=info_text, font=ctk.CTkFont(size=12, family="Consolas"), justify="left", text_color="#4CAF50")
-        info_label.pack(pady=20, padx=20)
-        
-    def create_logs_tab(self):
-        logs_tab = self.tabview.tab(_("tab_logs"))
-        self.log_box = ctk.CTkTextbox(logs_tab, corner_radius=10, font=ctk.CTkFont(size=12))
-        self.log_box.pack(fill="both", expand=True, padx=20, pady=20)
-        self.log_box.configure(state="disabled")
-        
-    # ---------- FONKSİYONLAR ----------
-    def log(self, msg, color="white"):
-        now = datetime.datetime.now().strftime("%H:%M:%S")
-        console_log(msg, color)
+        self._stop_event = threading.Event()
+
+    def check_live(self, channel:str) -> bool:
         try:
-            self.log_box.configure(state="normal")
-            self.log_box.insert("end", f"[{now}] {msg}\n", color)
-            self.log_box.tag_config(color, foreground=color)
-            self.log_box.configure(state="disabled")
-            self.log_box.see("end")
-        except:
-            pass
-            
-    def set_status(self, text, color):
-        try:
-            self.status_label.configure(text=f"● {text}", text_color=color)
-        except:
-            pass
-            
-    def select_folder(self):
-        folder = filedialog.askdirectory()
-        if folder:
-            self.folder_entry.delete(0, "end")
-            self.folder_entry.insert(0, folder)
-            self.log(f"📁 Klasör seçildi: {folder}", "green")
-            self.save_user_data()
-            
-    def select_profile_folder(self):
-        folder = filedialog.askdirectory()
-        if folder:
-            self.profile_folder_entry.delete(0, "end")
-            self.profile_folder_entry.insert(0, folder)
-            self.log(f"📁 Profil klasörü seçildi: {folder}", "green")
-            
-    def on_shutdown_toggle(self):
-        if self.shutdown_var.get():
-            self.close_app_var.set(False)
-            self.shutdown_after = True
-            self.log(_("shutdown_active"), "purple")
-        else:
-            self.shutdown_after = False
-        self.save_user_data()
-            
-    def on_close_app_toggle(self):
-        if self.close_app_var.get():
-            self.shutdown_var.set(False)
-            self.close_app_after = True
-            self.log(_("close_app_active"), "purple")
-        else:
-            self.close_app_after = False
-        self.save_user_data()
-        
-    def shutdown_computer(self):
-        self.log(f"⚠ Bilgisayar 30 saniye sonra KAPANACAK!", "purple")
-        self.log(f"⏰ Kapatmayı iptal etmek için DURDUR butonuna basın!", "orange")
-        
-        for i in range(30, 0, -1):
-            if not self.shutdown_after or not self.was_recording:
-                self.log(f"✅ Bilgisayar kapatma iptal edildi!", "green")
-                return
-            if i % 10 == 0 or i <= 5:
-                self.log(f"⏳ Kapatmaya {i} saniye kaldı...", "orange")
-            time.sleep(1)
-        
-        if self.shutdown_after and self.was_recording:
-            self.log(f"💻 Bilgisayar kapatılıyor...", "purple")
-            os.system("shutdown /s /t 5")
-            
-    def close_app(self):
-        self.log(f"⚠ Uygulama 10 saniye sonra KAPANACAK!", "purple")
-        self.log(f"⏰ Kapatmayı iptal etmek için DURDUR butonuna basın!", "orange")
-        
-        for i in range(10, 0, -1):
-            if not self.close_app_after or not self.was_recording:
-                self.log(f"✅ Uygulama kapatma iptal edildi!", "green")
-                return
-            if i <= 3:
-                self.log(f"⏳ Uygulama {i} saniye sonra kapanacak...", "orange")
-            time.sleep(1)
-        
-        if self.close_app_after and self.was_recording:
-            self.log(f"👋 Uygulama kapatılıyor...", "purple")
-            self.quit()
-            os._exit(0)
-            
-    def check_live_simple(self, channel):
-        try:
-            url = f"https://kick.com/api/v2/channels/{channel}"
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Accept": "application/json",
-                "Referer": "https://kick.com/"
-            }
-            r = requests.get(url, headers=headers, timeout=8)
-            
+            r = requests.get(f"https://kick.com/api/v2/channels/{channel}",
+                headers={"User-Agent":"Mozilla/5.0","Accept":"application/json","Referer":"https://kick.com/"},
+                timeout=8)
             if r.status_code == 200:
                 data = r.json()
-                if "livestream" in data and data["livestream"] is not None:
-                    if data["livestream"].get("is_live") == True:
-                        return True
-                if data.get("is_live") == True:
-                    return True
-            
-            url = f"https://kick.com/{channel}"
-            r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
-            if r.status_code == 200:
-                html = r.text
-                if '"is_live":true' in html or 'isLive":true' in html:
-                    return True
-                if 'data-testid="live-badge"' in html or 'Live now' in html:
-                    return True
-            
-            result = subprocess.run(
-                ["streamlink", f"https://kick.com/{channel}"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if "Available streams:" in result.stdout:
-                return True
-                
-            return False
-            
+                ls = data.get("livestream")
+                if ls and ls.get("is_live"): return True
+                if data.get("is_live"): return True
+            r2 = requests.get(f"https://kick.com/{channel}",headers={"User-Agent":"Mozilla/5.0"},timeout=8)
+            if r2.status_code==200 and ('"is_live":true' in r2.text or 'isLive":true' in r2.text): return True
+            res = subprocess.run(["streamlink",f"https://kick.com/{channel}"],capture_output=True,text=True,timeout=10)
+            return "Available streams:" in res.stdout
+        except requests.RequestException as e:
+            log.debug(f"Ağ hatası ({channel}): {e}"); return False
         except Exception as e:
-            console_log(f"⚠ Canlı kontrol hatası ({channel}): {e}", "orange")
-            return False
-            
-    def find_best_quality(self, channel, selected_quality=None):
+            log.warning(f"Canlılık hatası ({channel}): {e}"); return False
+
+    def find_best_quality(self, channel:str, preferred:str="best") -> str:
         try:
-            result = subprocess.run(["streamlink", f"https://kick.com/{channel}"], capture_output=True, text=True, timeout=15)
-            available_streams = []
-            if "Available streams:" in result.stdout:
-                streams_section = result.stdout.split("Available streams:")[1].strip()
-                for line in streams_section.split("\n"):
-                    line = line.strip()
-                    if line and not line.startswith("("):
-                        quality = line.split(" ")[0].strip()
-                        if quality and quality not in ["worst", "best"]:
-                            available_streams.append(quality)
-                if "best" in streams_section or "(best)" in streams_section:
-                    available_streams.insert(0, "best")
-            
-            quality_order = ["best", "1080p60", "1080p", "720p60", "720p", "480p", "360p", "160p"]
-            available_sorted = [q for q in quality_order if q in available_streams]
-            
-            if selected_quality and selected_quality not in ["otomatik", "auto", "best"]:
-                if selected_quality in available_streams:
-                    return selected_quality
-                elif available_sorted:
-                    return available_sorted[0]
-            
-            if "best" in available_sorted:
-                return "best"
-            elif available_sorted:
-                return available_sorted[0]
-            return "best"
-        except:
-            return "best"
-            
-    def start_record(self):
+            res = subprocess.run(["streamlink",f"https://kick.com/{channel}"],capture_output=True,text=True,timeout=15)
+            streams = []
+            if "Available streams:" in res.stdout:
+                section = res.stdout.split("Available streams:")[1].strip()
+                for line in section.split("\n"):
+                    q = line.strip().split(" ")[0].strip()
+                    if q and q not in ("worst","best"): streams.append(q)
+                if "best" in section or "(best)" in section: streams.insert(0,"best")
+            order = ["best","1080p60","1080p","720p60","720p","480p","360p","160p"]
+            sorted_s = [q for q in order if q in streams]
+            auto = {"otomatik","auto","自動","자동","авто"}
+            if preferred not in auto and preferred != "best":
+                return preferred if preferred in streams else (sorted_s[0] if sorted_s else "best")
+            return sorted_s[0] if sorted_s else "best"
+        except: return "best"
+
+    def start(self, channel:str, folder:str, quality:str, shutdown_cb=None, close_app_cb=None):
         self.recording = True
         self.was_recording = False
-        self.current_filename = None
-        self.log(f"🎬 {_('log_start')}", "cyan")
-        self.set_status(_("status_waiting"), "orange")
-        
-        def record_loop():
-            channel = self.channel_entry.get().strip().lower()
-            selected_quality = self.quality_menu.get()
-            folder = self.folder_entry.get()
-            
-            if selected_quality in ["otomatik", "auto"]:
-                quality = self.find_best_quality(channel)
-                self.log(f"⚙ Otomatik kalite: {quality}", "green")
-            else:
-                quality = self.find_best_quality(channel, selected_quality)
-                if quality != selected_quality:
-                    self.log(f"⚠ '{selected_quality}' mevcut değil, '{quality}' kullanılıyor", "orange")
-            
-            was_live_before = False
-            
-            while self.recording:
-                try:
-                    is_live = self.check_live_simple(channel)
-                    
-                    if not is_live:
-                        self.set_status("ÇEVRİMDIŞI", "red")
-                        if was_live_before:
-                            self.log(f"📴 Yayın sona erdi! {channel} artık çevrimdışı", "orange")
-                            if self.shutdown_after and self.was_recording:
-                                threading.Thread(target=self.shutdown_computer, daemon=True).start()
-                            elif self.close_app_after and self.was_recording:
-                                threading.Thread(target=self.close_app, daemon=True).start()
-                            was_live_before = False
-                        time.sleep(10)
-                        continue
-                    else:
-                        if not was_live_before:
-                            was_live_before = True
-                            self.was_recording = True
-                            self.log(f"🔴 CANLI YAYIN BAŞLADI! Kayıt alınıyor...", "green")
-                            
-                            now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                            channel_folder = os.path.join(folder, channel)
-                            if not os.path.exists(channel_folder):
-                                os.makedirs(channel_folder)
-                            
-                            self.current_filename = os.path.join(channel_folder, f"{channel}_{now}.mp4")
-                            self.start_time = time.time()
-                            self.set_status(_("status_online"), "green")
-                            self.log(f"📁 Dosya: {os.path.basename(self.current_filename)}", "cyan")
-                            
-                            self.process = subprocess.Popen([
-                                "streamlink", f"https://kick.com/{channel}", quality, "-o", self.current_filename, "--quiet"
-                            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                            
-                            self.process.wait()
-                            
-                            if self.current_filename and os.path.exists(self.current_filename):
-                                size = os.path.getsize(self.current_filename) / (1024*1024)
-                                self.log(f"📊 Kayıt tamamlandı: {size:.2f} MB", "green")
-                            
-                            self.start_time = None
-                            time.sleep(5)
-                        else:
-                            self.set_status(_("status_online"), "green")
-                            time.sleep(1)
-                            
-                except Exception as e:
-                    self.log(f"❌ Döngü hatası: {e}", "red")
-                    time.sleep(10)
-        
-        threading.Thread(target=record_loop, daemon=True).start()
-        self.save_user_data()
-        
-    def stop_record(self):
+        self._stop_event.clear()
+        threading.Thread(target=self._loop,
+            args=(channel,folder,quality,shutdown_cb,close_app_cb),daemon=True).start()
+
+    def stop(self):
         self.recording = False
-        
-        if self.shutdown_after:
-            self.shutdown_after = False
-            self.shutdown_var.set(False)
-        if self.close_app_after:
-            self.close_app_after = False
-            self.close_app_var.set(False)
-        
-        if self.process:
+        self._stop_event.set()
+        proc, self.process = self.process, None
+        if proc:
             try:
-                self.process.terminate()
-                self.process.kill()
-            except:
-                pass
-            self.process = None
-        
-        self.set_status(_("status_stopped"), "gray")
-        self.timer_label.configure(text=f"{_('timer')} 00:00:00")
-        self.log(f"⏹ Kayıt durduruldu", "orange")
-        self.save_user_data()
-        
-    def toggle_record(self):
-        if self.recording:
-            self.stop_record()
-            self.toggle_button.configure(text=_("button_start"), fg_color="#4CAF50")
-        else:
-            if not self.channel_entry.get():
-                self.log(_("error_channel"), "red")
-                return
-            if not self.folder_entry.get():
-                self.log(_("error_folder"), "red")
-                return
-            self.start_record()
-            self.toggle_button.configure(text=_("button_stop"), fg_color="#f44336")
-            
-    def update_timer(self):
-        if self.recording and self.start_time:
-            elapsed = int(time.time() - self.start_time)
-            hrs = elapsed // 3600
-            mins = (elapsed % 3600) // 60
-            secs = elapsed % 60
-            self.timer_label.configure(text=f"⏱ {hrs:02}:{mins:02}:{secs:02}")
-        self.after(1000, self.update_timer)
-        
-    def update_file_size(self):
-        if self.recording and self.current_filename and os.path.exists(self.current_filename):
-            size = os.path.getsize(self.current_filename) / (1024*1024)
-            self.size_label.configure(text=f"💾 {size:.2f} MB")
-        self.after(2000, self.update_file_size)
-        
-    def show_history(self):
-        history_file = "kayit_gecmisi.json"
+                proc.terminate()
+                try: proc.wait(timeout=3)
+                except subprocess.TimeoutExpired: proc.kill(); proc.wait()
+            except Exception as e: log.warning(f"Process durdurulamadı: {e}")
+        self.start_time = None
+        self._on_timer_reset()
+
+    def _loop(self, channel, folder, quality, shutdown_cb, close_app_cb):
+        actual = self.find_best_quality(channel, quality)
+        if actual != quality:
+            self._on_log(f"⚠ '{quality}' yok, '{actual}' kullanılıyor","orange")
+        was_live = False; fail = 0; rec_start = None
+        while self.recording:
+            try:
+                is_live = self.check_live(channel); fail = 0
+            except Exception as e:
+                fail += 1
+                wait = min(self._BACKOFF_BASE*(2**(fail-1)),self._BACKOFF_MAX)
+                self._on_log(f"⚠ Ağ hatası, {wait}s sonra tekrar...","orange")
+                self._on_status(_("status_waiting"),"#FF9800")
+                self._stop_event.wait(wait); continue
+
+            if not is_live:
+                self._on_status("⚫ ÇEVRİMDIŞI","#888888")
+                if was_live:
+                    was_live = False
+                    self._on_log(f"📴 Yayın bitti: {channel}","orange")
+                    if rec_start and self.current_filename:
+                        elapsed = int(time.time()-rec_start)
+                        size_mb = os.path.getsize(self.current_filename)/1_048_576 if os.path.exists(self.current_filename) else 0.0
+                        self._save_history(channel,elapsed,size_mb,self.current_filename)
+                        if self._on_history_saved:
+                            self._on_history_saved()
+                    send_notification(_("notif_stopped"),channel)
+                    if self.was_recording:
+                        if shutdown_cb: threading.Thread(target=shutdown_cb,daemon=True).start()
+                        elif close_app_cb: threading.Thread(target=close_app_cb,daemon=True).start()
+                    rec_start = None
+                self._stop_event.wait(10); continue
+
+            if not was_live:
+                was_live = True; self.was_recording = True; rec_start = time.time()
+                self._on_log(f"🔴 CANLI! Kayıt başlıyor: {channel}","green")
+                send_notification(_("notif_started"),channel)
+                now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                ch_folder = os.path.join(folder,channel)
+                os.makedirs(ch_folder,exist_ok=True)
+                self.current_filename = os.path.join(ch_folder,f"{channel}_{now}.mp4")
+                self.start_time = time.time()
+                self._on_status(_("status_online"),"#4CAF50")
+                self._on_log(f"📁 {os.path.basename(self.current_filename)}","cyan")
+                self.process = subprocess.Popen(
+                    ["streamlink",f"https://kick.com/{channel}",actual,"-o",self.current_filename,"--quiet"],
+                    stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                self.process.wait()
+                if self.current_filename and os.path.exists(self.current_filename):
+                    size = os.path.getsize(self.current_filename)/1_048_576
+                    self._on_log(f"📊 Kayıt tamamlandı: {size:.2f} MB","green")
+                    self._on_size(size)
+                self.start_time = None
+                self._stop_event.wait(5)
+            else:
+                self._on_status(_("status_online"),"#4CAF50")
+                self._stop_event.wait(1)
+
+    @staticmethod
+    def _save_history(channel,duration_secs,size_mb,filepath):
         try:
-            with open(history_file, "r", encoding="utf-8") as f:
-                history = json.load(f)
-        except:
-            messagebox.showinfo("Bilgi", "Henüz kayıt yok")
-            return
-        
-        history_window = ctk.CTkToplevel(self)
-        history_window.title("Yayın Geçmişi")
-        history_window.geometry("600x400")
-        
-        scroll_frame = ctk.CTkScrollableFrame(history_window)
-        scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        for kayit in reversed(history[-50:]):
-            info = f"📺 {kayit['kanal']} | ⏱ {kayit.get('sure', '?')} | 💾 {kayit.get('boyut', '?')} | 📅 {kayit['tarih']}"
-            ctk.CTkLabel(scroll_frame, text=info, anchor="w").pack(fill="x", pady=2)
-            
-    def check_for_updates(self):
+            history = []
+            if os.path.exists(HISTORY_FILE):
+                with open(HISTORY_FILE,"r",encoding="utf-8") as f: history = json.load(f)
+            h,m,s = duration_secs//3600,(duration_secs%3600)//60,duration_secs%60
+            history.append({"kanal":channel,"tarih":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                            "sure":f"{h:02}:{m:02}:{s:02}","boyut":f"{size_mb:.2f} MB","dosya":filepath})
+            history = history[-200:]
+            with open(HISTORY_FILE,"w",encoding="utf-8") as f: json.dump(history,f,indent=2,ensure_ascii=False)
+        except Exception as e: log.warning(f"Geçmiş kaydedilemedi: {e}")
+
+# ─── SCHEDULER MANAGER ────────────────────────────────────────────────────────
+class SchedulerManager:
+    _DAY_MAP = {"Pazartesi":"monday","Salı":"tuesday","Çarşamba":"wednesday",
+                "Perşembe":"thursday","Cuma":"friday","Cumartesi":"saturday","Pazar":"sunday"}
+
+    def __init__(self, trigger_cb, on_log):
+        self.tasks:list = []
+        self._trigger_cb = trigger_cb
+        self._on_log = on_log
+        self._running = False
+
+    def start_thread(self):
+        if self._running: return
+        self._running = True
+        self.rebuild()
+        threading.Thread(target=self._run,daemon=True).start()
+
+    def _run(self):
+        while True: schedule.run_pending(); time.sleep(30)
+
+    def rebuild(self):
+        schedule.clear()
+        for task in self.tasks:
+            ch,ts,days = task[0],task[1],task[2]
+            folder  = task[3] if len(task)>3 else ""
+            quality = task[4] if len(task)>4 else "best"
+            for day in days:
+                eng = self._DAY_MAP.get(day)
+                if eng:
+                    getattr(schedule.every(),eng).at(ts).do(self._trigger_cb,ch,folder,quality)
+
+    def next_run_str(self, idx:int) -> str:
+        jobs = schedule.get_jobs()
+        if idx < len(jobs):
+            nr = jobs[idx].next_run
+            if nr:
+                delta = nr - datetime.datetime.now()
+                total = int(delta.total_seconds())
+                if total >= 0:
+                    return f"{total//3600}s {(total%3600)//60}d"
+        return ""
+
+    def add(self,channel,time_str,days,folder="",quality="best"):
+        self.tasks.append([channel,time_str,days,folder,quality]); self.rebuild()
+
+    def remove(self,index:int):
+        if 0 <= index < len(self.tasks): self.tasks.pop(index); self.rebuild()
+
+# ─── PROFILE MANAGER ──────────────────────────────────────────────────────────
+class ProfileManager:
+    _CACHE_TTL = 60
+
+    def __init__(self, on_render):
+        self.profiles:list = []
+        self._cache:dict   = {}
+        self._on_render    = on_render
+        self.active_channel:str|None = None
+
+    def add(self,channel:str,folder:str) -> bool:
+        if any(p["channel"]==channel for p in self.profiles): return False
+        self.profiles.append({"channel":channel,"folder":folder}); self.save(); return True
+
+    def remove_last(self) -> dict|None:
+        if not self.profiles: return None
+        removed = self.profiles.pop()
+        if self.active_channel == removed["channel"]: self.active_channel = None
+        self.save(); return removed
+
+    def save(self):
         try:
-            self.log(f"🔄 Güncelleme kontrol ediliyor...", "blue")
-            response = requests.get("https://raw.githubusercontent.com/erneman26/Kick-Canli-Yayin-Kaydedici/main/version.json", timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                latest = data.get("version", VERSION)
-                if latest > VERSION:
-                    self.log(f"✨ YENİ VERSİYON MEVCUT: {latest}", "green")
-                    if messagebox.askyesno("Güncelleme", f"Yeni versiyon {latest} mevcut. İndirmek ister misiniz?"):
-                        webbrowser.open("https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/releases/latest")
-                else:
-                    self.log(f"✅ Uygulamanız güncel!", "green")
-        except:
-            self.log(f"⚠ Güncelleme kontrol edilemedi", "orange")
-            
-    def change_language(self, choice):
-        global current_lang
-        
-        self.save_user_data()
-        self.save_profiles()
-        
-        current_lang = choice
-        
-        try:
-            with open("language.json", "w", encoding="utf-8") as f:
-                json.dump({"language": choice}, f)
-        except:
-            pass
-        
-        messagebox.showinfo(_("language_label"), f"Dil '{choice}' olarak değiştirildi. Program yeniden başlatılıyor...")
-        python = sys.executable
-        os.execl(python, python, *sys.argv)
-        
-    def change_theme(self, choice):
-        theme_map = {"Koyu": "dark", "Açık": "light", "Sistem": "system"}
-        ctk.set_appearance_mode(theme_map.get(choice, "dark"))
-        self.save_user_data()
-        
-    def load_user_data(self):
-        try:
-            with open("user_data.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-                
-                if "channel" in data and data["channel"]:
-                    self.channel_entry.insert(0, data["channel"])
-                if "folder" in data and data["folder"]:
-                    self.folder_entry.insert(0, data["folder"])
-                if "quality" in data:
-                    self.quality_menu.set(data["quality"])
-                if "shutdown" in data:
-                    self.shutdown_var.set(data["shutdown"])
-                    if data["shutdown"]:
-                        self.shutdown_after = True
-                if "close_app" in data:
-                    self.close_app_var.set(data["close_app"])
-                    if data["close_app"]:
-                        self.close_app_after = True
-                if "profiles" in data:
-                    self.channel_profiles = data["profiles"]
-                    self.update_profiles_list()
-                if "schedules" in data:
-                    self.scheduled_tasks = data["schedules"]
-                    self.update_scheduler_list()
-                    
-                print("✅ Kullanıcı verileri yüklendi")
-        except FileNotFoundError:
-            print("⚠ Kullanıcı verileri bulunamadı (ilk çalıştırma)")
-        except Exception as e:
-            print(f"⚠ Kullanıcı verileri yüklenemedi: {e}")
-            
-    def save_user_data(self):
-        try:
-            data = {
-                "channel": self.channel_entry.get(),
-                "folder": self.folder_entry.get(),
-                "quality": self.quality_menu.get(),
-                "shutdown": self.shutdown_var.get(),
-                "close_app": self.close_app_var.get(),
-                "profiles": self.channel_profiles,
-                "schedules": self.scheduled_tasks
-            }
-            with open("user_data.json", "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            print("✅ Kullanıcı verileri kaydedildi")
-        except Exception as e:
-            print(f"⚠ Veri kaydedilemedi: {e}")
-            
-    def load_profiles(self):
+            with open(PROFILES_FILE,"w",encoding="utf-8") as f:
+                json.dump(self.profiles,f,indent=2,ensure_ascii=False)
+        except Exception as e: log.warning(f"Profiller kaydedilemedi: {e}")
+
+    def load(self):
         try:
             if os.path.exists(PROFILES_FILE):
-                with open(PROFILES_FILE, "r", encoding="utf-8") as f:
-                    self.channel_profiles = json.load(f)
-                self.update_profiles_list()
-        except:
-            self.channel_profiles = []
-            
-    def save_profiles(self):
-        try:
-            with open(PROFILES_FILE, "w", encoding="utf-8") as f:
-                json.dump(self.channel_profiles, f, indent=2, ensure_ascii=False)
-        except:
-            pass
-            
-    def add_profile(self):
-        channel = self.profile_channel_entry.get().strip().lower()
-        folder = self.profile_folder_entry.get().strip()
-        
-        if not channel:
-            self.log(_("error_channel"), "red")
+                with open(PROFILES_FILE,"r",encoding="utf-8") as f:
+                    self.profiles = json.load(f)
+        except Exception as e: log.warning(f"Profiller yüklenemedi: {e}")
+
+    def check_live_cached(self,channel:str,rec_mgr:"RecordManager") -> bool:
+        now = time.time()
+        if channel in self._cache:
+            result,ts = self._cache[channel]
+            if now-ts < self._CACHE_TTL: return result
+        result = rec_mgr.check_live(channel)
+        self._cache[channel] = (result,now); return result
+
+    def refresh_async(self,rec_mgr:"RecordManager"):
+        def _work():
+            for p in self.profiles: self.check_live_cached(p["channel"],rec_mgr)
+            self._on_render()
+        threading.Thread(target=_work,daemon=True).start()
+
+# ─── STYLESHEET ───────────────────────────────────────────────────────────────
+APP_STYLE = """
+QMainWindow, QWidget#central {
+    background: #1a1a2e;
+}
+QWidget {
+    color: #e0e0e0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+}
+/* Kart */
+QFrame#card {
+    background: #16213e;
+    border-radius: 14px;
+    border: 1px solid #0f3460;
+}
+/* Başlık çubuğu */
+QFrame#titlebar {
+    background: #0d0d1a;
+    border-radius: 12px;
+    border: 1px solid #1a1a3e;
+}
+/* Tab bar */
+QTabBar::tab {
+    background: #16213e;
+    color: #888;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    margin: 2px 3px;
+    font-weight: 500;
+}
+QTabBar::tab:selected {
+    background: #4CAF50;
+    color: white;
+}
+QTabBar::tab:hover:!selected {
+    background: #1a2a4a;
+    color: #aaa;
+}
+QTabWidget::pane {
+    background: #1a1a2e;
+    border: none;
+}
+/* Input */
+QLineEdit {
+    background: #0d0d1a;
+    border: 1.5px solid #2a2a4a;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #e0e0e0;
+    font-size: 13px;
+}
+QLineEdit:focus {
+    border-color: #4CAF50;
+}
+QLineEdit::placeholder {
+    color: #555;
+}
+/* ComboBox */
+QComboBox {
+    background: #0d0d1a;
+    border: 1.5px solid #2a2a4a;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #e0e0e0;
+    font-size: 13px;
+}
+QComboBox:focus { border-color: #4CAF50; }
+QComboBox::drop-down { border: none; width: 24px; }
+QComboBox::down-arrow {
+    image: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #888;
+    margin-right: 8px;
+}
+QComboBox QAbstractItemView {
+    background: #16213e;
+    border: 1px solid #0f3460;
+    border-radius: 6px;
+    selection-background-color: #4CAF50;
+    color: #e0e0e0;
+}
+/* ScrollArea ve içindeki tüm widget'lar — beyaz arka planı engelle */
+QScrollArea { border: none; background: transparent; }
+QScrollArea > QWidget > QWidget { background: transparent; }
+QAbstractScrollArea { background: transparent; }
+QAbstractScrollArea > QWidget > QWidget { background: transparent; }
+QScrollBar:vertical {
+    background: #0d0d1a; width: 6px; border-radius: 3px;
+}
+QScrollBar::handle:vertical {
+    background: #2a2a4a; border-radius: 3px; min-height: 20px;
+}
+QScrollBar::handle:vertical:hover { background: #4CAF50; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+/* TextEdit (loglar) */
+QTextEdit {
+    background: #0d0d1a;
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    color: #c0c0c0;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    padding: 8px;
+}
+/* RadioButton */
+QRadioButton { color: #888; spacing: 6px; }
+QRadioButton::indicator {
+    width: 16px; height: 16px;
+    border-radius: 8px; border: 2px solid #555; background: transparent;
+}
+QRadioButton::indicator:checked {
+    background: #4CAF50; border-color: #4CAF50;
+}
+/* Label */
+QLabel#section-label {
+    color: #4CAF50;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    margin: 0px;
+    padding: 0px;
+    border: none;
+}
+QLabel#status-label { font-size: 13px; }
+QLabel#title-label  { font-size: 20px; font-weight: 700; color: #4CAF50; }
+QLabel#info-bar-label { font-size: 14px; color: #aaa; }
+"""
+
+# ─── ANA PENCERE ──────────────────────────────────────────────────────────────
+class MainWindow(QMainWindow):
+    # Thread'den UI'ya sinyal
+    _sig_log    = pyqtSignal(str, str)
+    _sig_status = pyqtSignal(str, str)
+    _sig_size   = pyqtSignal(float)
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle(f"{_('app_title')} {VERSION}")
+        self.resize(1020, 980)
+        self.setMinimumSize(900, 820)
+
+        # ── Pencere & taskbar ikonu ───────────────────────────────────────────
+        ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kick.ico")
+        if not os.path.exists(ico_path):
+            # PyInstaller ile paketlendiyse
+            ico_path = os.path.join(getattr(sys, "_MEIPASS", ""), "kick.ico")
+        if os.path.exists(ico_path):
+            app_icon = QIcon(ico_path)
+            self.setWindowIcon(app_icon)
+            QApplication.instance().setWindowIcon(app_icon)
+
+        # Sinyaller UI thread'ine yönlendir
+        self._sig_log.connect(self._do_log)
+        self._sig_status.connect(self._do_status)
+        self._sig_size.connect(self._on_recording_size)
+
+        # Yöneticiler
+        self.rec_mgr = RecordManager(
+            on_log           = lambda m,c: self._sig_log.emit(m,c),
+            on_status        = lambda t,c: self._sig_status.emit(t,c),
+            on_size          = lambda mb: self._sig_size.emit(mb),
+            on_timer_reset   = lambda: self.timer_label.setText("⏱ 00:00:00"),
+            on_history_saved = lambda: QTimer.singleShot(300, self._refresh_history_panel),
+        )
+        self.profile_mgr = ProfileManager(
+            on_render = lambda: QTimer.singleShot(0, self._render_profiles)
+        )
+        self.sched_mgr = SchedulerManager(
+            trigger_cb = self._trigger_scheduled_record,
+            on_log     = lambda m,c: self._sig_log.emit(m,c),
+        )
+
+        self.shutdown_after  = False
+        self.close_app_after = False
+        self._tray_icon: QSystemTrayIcon | None = None
+
+        # UI kur
+        self._build_ui()
+
+        # Veri yükle
+        self.profile_mgr.load()
+        self._load_user_data()
+        self.sched_mgr.start_thread()
+
+        # Bağımlılık kontrolü
+        missing = check_dependencies()
+        if missing:
+            msg = _("dep_missing_msg").format("\n".join(f"  • {m}" for m in missing))
+            QTimer.singleShot(600, lambda: QMessageBox.warning(
+                self, _("dep_missing_title"), msg))
+            self._do_log(f"⚠ Eksik araç: {', '.join(missing)}", "red")
+
+        # Başlangıç logları
+        self._do_log(_("lang_detected").format(current_lang), "cyan")
+        self._do_log(f"🎥 {_('app_title')} {VERSION} — {_('log_start')}", "green")
+        self._do_log(f"👉 {_('log_instruction')}", "cyan")
+
+        # Timer, güncelleme, profil yenileme
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick_timer)
+        self._timer.start(1000)
+
+        self._size_timer = QTimer(self)
+        self._size_timer.timeout.connect(self._tick_size)
+        self._size_timer.start(2000)
+
+        QTimer.singleShot(1000, lambda: threading.Thread(
+            target=self._check_updates, daemon=True).start())
+        self._schedule_profile_refresh()
+
+        if TRAY_OK:
+            self._init_tray()
+
+    # ── UI KURULUMU ───────────────────────────────────────────────────────────
+    def _build_ui(self):
+        central = QWidget()
+        central.setObjectName("central")
+        self.setCentralWidget(central)
+        root = QVBoxLayout(central)
+        root.setContentsMargins(15, 15, 15, 15)
+        root.setSpacing(12)
+
+        root.addWidget(self._make_title_bar())
+        root.addWidget(self._make_tabs(), stretch=1)
+
+    def _make_title_bar(self) -> QFrame:
+        bar = QFrame()
+        bar.setObjectName("titlebar")
+        bar.setFixedHeight(62)
+        lay = QHBoxLayout(bar)
+        lay.setContentsMargins(20, 0, 20, 0)
+
+        title = QLabel(f"🎬 {_('app_title')} {VERSION}")
+        title.setObjectName("title-label")
+        lay.addWidget(title)
+        lay.addStretch()
+
+        # Pulse göstergesi
+        self.pulse = PulseIndicator(color="#f44336", size=36)
+        self.pulse.hide()
+        lay.addWidget(self.pulse)
+
+        self.status_label = QLabel(f"● {_('status_ready')}")
+        self.status_label.setObjectName("status-label")
+        self.status_label.setStyleSheet("color: #888; margin-left: 8px;")
+        lay.addWidget(self.status_label)
+        return bar
+
+    def _make_tabs(self) -> QWidget:
+        from PyQt6.QtWidgets import QTabWidget
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self._make_record_tab(),    _("tab_record"))
+        self.tabs.addTab(self._make_scheduler_tab(), _("tab_scheduler"))
+        self.tabs.addTab(self._make_profiles_tab(),  _("tab_profiles"))
+        self.tabs.addTab(self._make_settings_tab(),  _("tab_settings"))
+        self.tabs.addTab(self._make_logs_tab(),      _("tab_logs"))
+        self.tabs.currentChanged.connect(self._on_tab_changed)
+        return self.tabs
+
+    def _on_tab_changed(self, index: int) -> None:
+        """
+        Sekme değişince içerik yukarıdan aşağıya kayarak gelir.
+        Eş zamanlı olarak fade-in de uygulanır — kayma + belirme birlikte.
+        """
+        widget = self.tabs.widget(index)
+        if widget is None:
             return
-        
-        for p in self.channel_profiles:
-            if p['channel'] == channel:
-                self.log(_("profile_exists").format(channel), "orange")
-                return
-        
-        self.channel_profiles.append({"channel": channel, "folder": folder})
-        self.save_profiles()
-        self.save_user_data()
-        self.update_profiles_list()
-        self.log(_("profile_added").format(channel), "green")
-        self.profile_channel_entry.delete(0, "end")
-        self.profile_folder_entry.delete(0, "end")
-        
-    def delete_profile(self):
-        if self.channel_profiles:
-            removed = self.channel_profiles.pop()
-            if self.active_profile_channel == removed['channel']:
-                self.active_profile_channel = None
-                self.channel_entry.delete(0, "end")
-                self.folder_entry.delete(0, "end")
-            self.save_profiles()
-            self.save_user_data()
-            self.update_profiles_list()
-            self.log(_("profile_deleted").format(removed['channel']), "orange")
-            
-    def on_profile_click(self, channel, folder):
-        if self.active_profile_channel == channel:
-            self.active_profile_channel = None
-            self.channel_entry.delete(0, "end")
-            self.folder_entry.delete(0, "end")
-            self.log(f"❌ Seçim kaldırıldı: {channel}", "orange")
+
+        # ── Mevcut geometriyi al ──────────────────────────────────────────────
+        final_rect = widget.geometry()
+
+        # Başlangıç konumu: widget'ın üstünden %40 kadar yukarıda
+        offset     = int(final_rect.height() * 0.40)
+        start_rect = final_rect.translated(0, -offset)  # y ekseni: yukarı
+
+        # ── Kayma animasyonu (geometry) ───────────────────────────────────────
+        slide = QPropertyAnimation(widget, b"geometry")
+        slide.setDuration(320)
+        slide.setStartValue(start_rect)
+        slide.setEndValue(final_rect)
+        slide.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        # ── Fade-in animasyonu (opacity) ──────────────────────────────────────
+        fx = QGraphicsOpacityEffect(widget)
+        widget.setGraphicsEffect(fx)
+        fade = QPropertyAnimation(fx, b"opacity")
+        fade.setDuration(320)
+        fade.setStartValue(0.0)
+        fade.setEndValue(1.0)
+        fade.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        # ── İkisini birlikte başlat ───────────────────────────────────────────
+        # widget'a bağlı tut — GC tarafından silinmesin
+        widget._tab_slide = slide
+        widget._tab_fade  = fade
+        widget._tab_fx    = fx
+        slide.start()
+        fade.start()
+
+    # ── KAYIT SEKMESİ ─────────────────────────────────────────────────────────
+    def _make_record_tab(self) -> QWidget:
+        tab = QWidget()
+        outer = QVBoxLayout(tab)
+        outer.setContentsMargins(20, 20, 20, 20)
+
+        card = QFrame(); card.setObjectName("card")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(28, 20, 28, 20)
+        lay.setSpacing(0)
+
+        def slbl(text, top=14):
+            lay.addSpacing(top)
+            l = QLabel(text)
+            l.setObjectName("section-label")
+            l.setFixedHeight(16)
+            l.setContentsMargins(0, 0, 0, 0)
+            lay.addWidget(l)
+            lay.addSpacing(3)
+
+        # Kanal
+        slbl("📺  " + _("channel_placeholder").upper(), top=0)
+        self.channel_input = QLineEdit()
+        self.channel_input.setPlaceholderText(_("channel_placeholder"))
+        self.channel_input.setFixedHeight(44)
+        lay.addWidget(self.channel_input)
+
+        # Kalite
+        slbl("⚙  KALİTE")
+        self.quality_combo = QComboBox()
+        self.quality_combo.addItems([_("quality_auto"), "best", "1080p", "720p", "480p"])
+        self.quality_combo.setFixedHeight(40)
+        lay.addWidget(self.quality_combo)
+
+        # Klasör
+        slbl("📁  " + _("folder_placeholder").upper())
+        fr = QWidget()
+        fr.setFixedHeight(40)
+        fl = QHBoxLayout(fr); fl.setContentsMargins(0,0,0,0); fl.setSpacing(8)
+        self.folder_input = QLineEdit()
+        self.folder_input.setPlaceholderText(_("folder_placeholder"))
+        fl.addWidget(self.folder_input)
+        btn_folder = HoverButton(_("folder_select"), base="#2196F3", hover="#1565C0", radius=8)
+        btn_folder.setFixedSize(90, 40)
+        btn_folder.clicked.connect(self._select_folder)
+        fl.addWidget(btn_folder)
+        lay.addWidget(fr)
+
+        lay.addSpacing(6)
+
+        # Checkbox'lar
+        self.cb_shutdown  = AnimatedCheckBox(_("shutdown_option"))
+        self.cb_close_app = AnimatedCheckBox(_("close_app_option"))
+        self.cb_shutdown.toggled.connect(self._on_shutdown_toggle)
+        self.cb_close_app.toggled.connect(self._on_close_app_toggle)
+        lay.addWidget(self.cb_shutdown)
+        lay.addWidget(self.cb_close_app)
+
+        lay.addSpacing(10)
+
+        # Ana buton
+        self.toggle_btn = HoverButton(_("button_start"), base="#4CAF50", hover="#2e7d32", radius=12)
+        self.toggle_btn.setFixedHeight(58)
+        font = self.toggle_btn.font(); font.setPointSize(14); font.setBold(True)
+        self.toggle_btn.setFont(font)
+        self.toggle_btn.clicked.connect(self._toggle_record)
+        lay.addWidget(self.toggle_btn)
+
+        # Bilgi çubuğu
+        info_bar = QFrame(); info_bar.setObjectName("card")
+        info_bar.setFixedHeight(44)
+        info_bar.setStyleSheet("QFrame#card { background: #0d0d1a; border-radius: 10px; }")
+        ibl = QHBoxLayout(info_bar); ibl.setContentsMargins(16, 0, 16, 0)
+        self.timer_label = QLabel("⏱ 00:00:00"); self.timer_label.setObjectName("info-bar-label")
+        self.size_label  = QLabel("💾 -");        self.size_label.setObjectName("info-bar-label")
+        ibl.addWidget(self.timer_label); ibl.addStretch(); ibl.addWidget(self.size_label)
+        lay.addWidget(info_bar)
+
+        # Alt buton — sadece güncelle kalıyor
+        brow = QWidget(); brl = QHBoxLayout(brow); brl.setContentsMargins(0,0,0,0); brl.setSpacing(8)
+        btn_upd = HoverButton(_("button_update"), base="#FF9800", hover="#e65100", radius=8)
+        btn_upd.setFixedSize(130, 40)
+        btn_upd.clicked.connect(lambda: threading.Thread(target=self._check_updates,daemon=True).start())
+        brl.addWidget(btn_upd); brl.addStretch()
+        lay.addWidget(brow)
+
+        outer.addWidget(card)
+
+        # ── Geçmiş Paneli — gömülü, kayıt sekmesinin altında ─────────────────
+        hist_header = QWidget()
+        hhl = QHBoxLayout(hist_header); hhl.setContentsMargins(4, 0, 4, 0)
+        hist_lbl = QLabel("📜  KAYIT GEÇMİŞİ")
+        hist_lbl.setObjectName("section-label")
+        hist_lbl.setFixedHeight(16)
+        hhl.addWidget(hist_lbl); hhl.addStretch()
+        outer.addWidget(hist_header)
+
+        self.hist_panel = QScrollArea()
+        self.hist_panel.setWidgetResizable(True)
+        self.hist_panel.setFixedHeight(160)
+        self.hist_panel.setStyleSheet(
+            "background:#0d0d1a; border-radius:10px; border:1px solid #1a1a3e;")
+        self.hist_inner = QWidget()
+        self.hist_inner.setStyleSheet("background: transparent;")
+        self.hist_layout = QVBoxLayout(self.hist_inner)
+        self.hist_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.hist_layout.setSpacing(3)
+        self.hist_layout.setContentsMargins(8, 8, 8, 8)
+        self.hist_panel.setWidget(self.hist_inner)
+        outer.addWidget(self.hist_panel)
+
+        self._refresh_history_panel()
+        return tab
+
+    # ── PLANLAYICI SEKMESİ ────────────────────────────────────────────────────
+    def _make_scheduler_tab(self) -> QWidget:
+        tab = QWidget()
+        outer = QVBoxLayout(tab)
+        outer.setContentsMargins(20, 20, 20, 20); outer.setSpacing(10)
+
+        card = QFrame(); card.setObjectName("card")
+        lay = QVBoxLayout(card); lay.setContentsMargins(24, 16, 24, 16); lay.setSpacing(0)
+
+        def slbl(text, top=10):
+            lay.addSpacing(top)
+            l = QLabel(text)
+            l.setObjectName("section-label")
+            l.setFixedHeight(16)
+            l.setContentsMargins(0, 0, 0, 0)
+            lay.addWidget(l)
+            lay.addSpacing(3)
+
+        slbl(_("scheduler_channel"), top=0)
+        self.sched_channel = QLineEdit(); self.sched_channel.setFixedHeight(38); lay.addWidget(self.sched_channel)
+
+        slbl(_("scheduler_time"))
+        self.sched_time = QLineEdit(); self.sched_time.setPlaceholderText("14:30")
+        self.sched_time.setFixedHeight(38); lay.addWidget(self.sched_time)
+
+        slbl("📁 " + _("profile_folder"))
+        sfr = QWidget(); sfl = QHBoxLayout(sfr); sfl.setContentsMargins(0,0,0,0); sfl.setSpacing(8)
+        self.sched_folder = QLineEdit()
+        self.sched_folder.setPlaceholderText(_("folder_placeholder")); self.sched_folder.setFixedHeight(38)
+        sfl.addWidget(self.sched_folder)
+        btn_sf = HoverButton(_("folder_select"), base="#2196F3", hover="#1565C0", radius=8)
+        btn_sf.setFixedSize(88, 38); btn_sf.clicked.connect(self._select_sched_folder)
+        sfl.addWidget(btn_sf); lay.addWidget(sfr)
+
+        slbl(_("scheduler_quality"))
+        self.sched_quality = QComboBox()
+        self.sched_quality.addItems([_("quality_auto"),"best","1080p","720p","480p"])
+        self.sched_quality.setFixedHeight(38); lay.addWidget(self.sched_quality)
+
+        slbl(_("scheduler_days"))
+        days_w = QWidget(); days_g = QGridLayout(days_w); days_g.setContentsMargins(0,0,0,0)
+        days_list = ["Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi","Pazar"]
+        self.day_cbs: dict[str, AnimatedCheckBox] = {}
+        for i, day in enumerate(days_list):
+            cb = AnimatedCheckBox(day)
+            self.day_cbs[day] = cb
+            days_g.addWidget(cb, i//3, i%3)
+        lay.addWidget(days_w)
+
+        lay.addSpacing(6)
+        brow = QWidget(); brl = QHBoxLayout(brow); brl.setContentsMargins(0,0,0,0); brl.setSpacing(8)
+        btn_add = HoverButton(_("scheduler_add"),    base="#4CAF50",hover="#2e7d32",radius=8); btn_add.setFixedHeight(36); btn_add.clicked.connect(self._add_scheduled_record)
+        btn_del = HoverButton(_("scheduler_delete"), base="#f44336",hover="#c62828",radius=8); btn_del.setFixedHeight(36); btn_del.clicked.connect(self._del_scheduled_record)
+        btn_stp = HoverButton(_("scheduler_stop"),   base="#FF9800",hover="#e65100",radius=8); btn_stp.setFixedHeight(36); btn_stp.clicked.connect(self._stop_current_recording)
+        brl.addWidget(btn_add); brl.addWidget(btn_del); brl.addWidget(btn_stp); brl.addStretch()
+        lay.addWidget(brow)
+
+        outer.addWidget(card)
+
+        # Liste
+        list_lbl = QLabel(_("scheduler_list")); list_lbl.setObjectName("section-label")
+        outer.addWidget(list_lbl)
+        self.sched_scroll = QScrollArea(); self.sched_scroll.setWidgetResizable(True)
+        self.sched_list_widget = QWidget()
+        self.sched_list_widget.setStyleSheet("background: transparent;")
+        self.sched_list_layout = QVBoxLayout(self.sched_list_widget)
+        self.sched_list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.sched_list_layout.setSpacing(4)
+        self.sched_scroll.setWidget(self.sched_list_widget)
+        self.sched_scroll.setStyleSheet("background: #16213e; border-radius: 10px; border: 1px solid #0f3460;")
+        outer.addWidget(self.sched_scroll, stretch=1)
+
+        self.sched_btn_group = QButtonGroup(self)
+        self._selected_sched_idx = -1
+        return tab
+
+    # ── PROFİLLER SEKMESİ ─────────────────────────────────────────────────────
+    def _make_profiles_tab(self) -> QWidget:
+        tab = QWidget()
+        outer = QVBoxLayout(tab); outer.setContentsMargins(20,20,20,20); outer.setSpacing(10)
+
+        card = QFrame(); card.setObjectName("card")
+        lay = QVBoxLayout(card); lay.setContentsMargins(24,16,24,16); lay.setSpacing(2)
+
+        def slbl(text):
+            l = QLabel(text); l.setObjectName("section-label"); lay.addWidget(l)
+
+        slbl(_("profile_channel"))
+        self.prof_channel = QLineEdit(); self.prof_channel.setFixedHeight(38); lay.addWidget(self.prof_channel)
+
+        slbl(_("profile_folder"))
+        pfr = QWidget(); pfl = QHBoxLayout(pfr); pfl.setContentsMargins(0,0,0,0); pfl.setSpacing(8)
+        self.prof_folder = QLineEdit()
+        self.prof_folder.setPlaceholderText(_("folder_placeholder")); self.prof_folder.setFixedHeight(38)
+        pfl.addWidget(self.prof_folder)
+        btn_pf = HoverButton(_("folder_select"),base="#2196F3",hover="#1565C0",radius=8)
+        btn_pf.setFixedSize(88,38); btn_pf.clicked.connect(self._select_profile_folder)
+        pfl.addWidget(btn_pf); lay.addWidget(pfr)
+
+        brow = QWidget(); brl = QHBoxLayout(brow); brl.setContentsMargins(0,0,0,0); brl.setSpacing(8)
+        btn_save = HoverButton(_("profile_save"),  base="#4CAF50",hover="#2e7d32",radius=8); btn_save.setFixedHeight(36); btn_save.clicked.connect(self._add_profile)
+        btn_del  = HoverButton(_("profile_delete"),base="#f44336",hover="#c62828",radius=8); btn_del.setFixedHeight(36);  btn_del.clicked.connect(self._delete_profile)
+        brl.addWidget(btn_save); brl.addWidget(btn_del); brl.addStretch()
+        lay.addWidget(brow)
+        outer.addWidget(card)
+
+        prof_lbl = QLabel(_("profiles_title")); prof_lbl.setObjectName("section-label")
+        outer.addWidget(prof_lbl)
+        self.prof_scroll = QScrollArea(); self.prof_scroll.setWidgetResizable(True)
+        self.prof_list_widget = QWidget()
+        self.prof_list_widget.setStyleSheet("background: transparent;")
+        self.prof_list_layout = QVBoxLayout(self.prof_list_widget)
+        self.prof_list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.prof_list_layout.setSpacing(4)
+        self.prof_scroll.setWidget(self.prof_list_widget)
+        self.prof_scroll.setStyleSheet("background: #16213e; border-radius: 10px; border: 1px solid #0f3460;")
+        outer.addWidget(self.prof_scroll, stretch=1)
+        return tab
+
+    # ── AYARLAR SEKMESİ ───────────────────────────────────────────────────────
+    def _make_settings_tab(self) -> QWidget:
+        tab = QWidget()
+        outer = QVBoxLayout(tab); outer.setContentsMargins(20,20,20,20); outer.setSpacing(16)
+
+        card = QFrame(); card.setObjectName("card")
+        lay = QVBoxLayout(card); lay.setContentsMargins(28,20,28,20); lay.setSpacing(16)
+
+        # Tema
+        tr = QWidget(); tl = QHBoxLayout(tr); tl.setContentsMargins(0,0,0,0)
+        tl.addWidget(QLabel(_("theme_label")))
+        self._theme_map = {_("theme_dark"):"dark",_("theme_light"):"light",_("theme_system"):"system"}
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(list(self._theme_map.keys()))
+        self.theme_combo.setFixedWidth(140); self.theme_combo.currentTextChanged.connect(self._change_theme)
+        tl.addWidget(self.theme_combo); tl.addStretch(); lay.addWidget(tr)
+
+        # Dil
+        lr = QWidget(); ll = QHBoxLayout(lr); ll.setContentsMargins(0,0,0,0)
+        ll.addWidget(QLabel(_("language_label")))
+        self.lang_combo = QComboBox()
+        self.lang_combo.addItems(list(LANGUAGES.keys()))
+        self.lang_combo.setCurrentText(current_lang)
+        self.lang_combo.setFixedWidth(160); self.lang_combo.currentTextChanged.connect(self._change_language)
+        ll.addWidget(self.lang_combo); ll.addStretch(); lay.addWidget(lr)
+
+        # Hakkında
+        info = QLabel(
+            f"<pre style='color:#4CAF50;font-family:Consolas;font-size:12px'>"
+            f"  {'─'*42}\n"
+            f"  Kick Canlı Yayın Kaydedici  {VERSION}\n"
+            f"  Geliştirici : erneman26\n"
+            f"  GitHub      : github.com/erneman26\n"
+            f"  {'─'*42}"
+            f"</pre>"
+        )
+        info.setStyleSheet("background:#0d0d1a; border-radius:8px; padding:12px;")
+        lay.addWidget(info)
+
+        outer.addWidget(card)
+        outer.addStretch()
+        return tab
+
+    # ── LOGLAR SEKMESİ ────────────────────────────────────────────────────────
+    def _make_logs_tab(self) -> QWidget:
+        tab = QWidget()
+        lay = QVBoxLayout(tab); lay.setContentsMargins(20,20,20,20)
+        self.log_box = QTextEdit(); self.log_box.setReadOnly(True)
+        lay.addWidget(self.log_box)
+        return tab
+
+    # ── LOG & DURUM ───────────────────────────────────────────────────────────
+    def _do_log(self, msg:str, color:str="white"):
+        now = datetime.datetime.now().strftime("%H:%M:%S")
+        COLOR_MAP = {
+            "green":"#4CAF50","red":"#f44336","orange":"#FF9800",
+            "cyan":"#00BCD4","purple":"#9C27B0","blue":"#2196F3","white":"#c0c0c0",
+        }
+        hex_color = COLOR_MAP.get(color,"#c0c0c0")
+        level = {"red":"error","orange":"warning"}.get(color,"info")
+        getattr(log, level)(msg)
+        self.log_box.append(f'<span style="color:#555">[{now}]</span> <span style="color:{hex_color}">{msg}</span>')
+        sb = self.log_box.verticalScrollBar()
+        sb.setValue(sb.maximum())
+
+    def _on_recording_size(self, mb: float):
+        """Kayıt boyutu güncellenince çağrılır — geçmişi de yenile."""
+        self.size_label.setText(f"💾 {mb:.2f} MB")
+
+    def _do_status(self, text:str, color:str):
+        self.status_label.setText(f"● {text}")
+        self.status_label.setStyleSheet(f"color: {color}; margin-left: 8px;")
+
+
+    def set_status(self, text:str, color:str):
+        QTimer.singleShot(0, lambda: self._do_status(text, color))
+
+    # ── TIMER'LAR ─────────────────────────────────────────────────────────────
+    def _tick_timer(self):
+        if self.rec_mgr.recording and self.rec_mgr.start_time:
+            e = int(time.time()-self.rec_mgr.start_time)
+            self.timer_label.setText(f"⏱ {e//3600:02}:{(e%3600)//60:02}:{e%60:02}")
+
+    def _tick_size(self):
+        fn = self.rec_mgr.current_filename
+        if fn and os.path.exists(fn):
+            self.size_label.setText(f"💾 {os.path.getsize(fn)/1_048_576:.2f} MB")
+
+    def _schedule_profile_refresh(self):
+        self.profile_mgr.refresh_async(self.rec_mgr)
+        QTimer.singleShot(30_000, self._schedule_profile_refresh)
+
+    # ── KAYIT KONTROL ─────────────────────────────────────────────────────────
+    def _toggle_record(self):
+        if self.rec_mgr.recording:
+            # Durdurulmadan önce geçmişe kaydet
+            self._save_current_to_history()
+            self.rec_mgr.stop()
+            self._do_status(_("status_stopped"), "#888")
+            self.shutdown_after = False; self.close_app_after = False
+            self.cb_shutdown.setChecked(False); self.cb_close_app.setChecked(False)
+            self.toggle_btn.set_colors("#4CAF50","#2e7d32")
+            self.toggle_btn.setText(_("button_start"))
+            self.pulse.stop()
+            self._do_log("⏹ Kayıt durduruldu","orange")
+            QTimer.singleShot(300, self._refresh_history_panel)
         else:
-            self.active_profile_channel = channel
-            self.channel_entry.delete(0, "end")
-            self.channel_entry.insert(0, channel)
-            if folder:
-                self.folder_entry.delete(0, "end")
-                self.folder_entry.insert(0, folder)
-            self.log(f"✅ Profil seçildi: {channel}", "green")
-        self.update_profiles_list()
-        self.save_user_data()
-        
-    def update_profiles_list(self):
-        for widget in self.profiles_listbox.winfo_children():
-            widget.destroy()
-        
-        if self.channel_profiles:
-            for profile in self.channel_profiles:
-                channel_name = profile['channel']
-                folder_name = os.path.basename(profile.get('folder', '')) if profile.get('folder') else ""
-                is_live = self.check_live_simple(channel_name)
-                is_active = (self.active_profile_channel == channel_name)
-                
-                if is_live:
-                    status_icon = "🟢"
-                    status_text = "CANLI"
-                    status_color = "#4CAF50"
-                else:
-                    status_icon = "🔴"
-                    status_text = "YAYINDA DEĞİL"
-                    status_color = "#f44336"
-                
-                if is_active:
-                    frame = ctk.CTkFrame(self.profiles_listbox, corner_radius=8, fg_color=("#2a4a2a", "#1a3a1a"), border_width=2, border_color="#4CAF50")
-                else:
-                    frame = ctk.CTkFrame(self.profiles_listbox, corner_radius=8, fg_color=("#3a3a3a", "#2a2a2a"))
-                frame.pack(fill="x", padx=5, pady=3)
-                frame.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
-                
-                name_label = ctk.CTkLabel(frame, text=f"{status_icon} {channel_name}" + (f"  📁 {folder_name}" if folder_name else ""), anchor="w", font=ctk.CTkFont(size=13))
-                name_label.pack(side="left", fill="x", expand=True, padx=10, pady=8)
-                name_label.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
-                
-                if is_active:
-                    active_label = ctk.CTkLabel(frame, text=_("active_profile"), text_color="#4CAF50", font=ctk.CTkFont(size=10, weight="bold"), width=60)
-                    active_label.pack(side="right", padx=5)
-                    active_label.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
-                
-                status_label = ctk.CTkLabel(frame, text=status_text, text_color=status_color, font=ctk.CTkFont(size=11, weight="bold"), width=80)
-                status_label.pack(side="right", padx=10)
-                status_label.bind("<Button-1>", lambda e, ch=channel_name, f=profile.get('folder', ''): self.on_profile_click(ch, f))
-        else:
-            empty_label = ctk.CTkLabel(self.profiles_listbox, text=_("scheduler_empty"), anchor="w")
-            empty_label.pack(fill="x", padx=5, pady=2)
-            
-    def add_scheduled_record(self):
-        channel = self.scheduler_channel_entry.get().strip().lower()
-        time_str = self.scheduler_time_entry.get().strip()
-        selected_days = [day for day, var in self.day_vars.items() if var.get()]
-        
-        if not channel or not time_str or not selected_days:
-            self.log("Lütfen tüm alanları doldurun!", "red")
+            channel = self.channel_input.text().strip().lower()
+            folder  = self.folder_input.text().strip()
+            if not channel: self._do_log(_("error_channel"),"red"); return
+            if not folder:  self._do_log(_("error_folder"),"red");  return
+            self.rec_mgr.start(channel=channel, folder=folder,
+                quality=self.quality_combo.currentText(),
+                shutdown_cb  = self._shutdown_computer if self.shutdown_after else None,
+                close_app_cb = self._close_app         if self.close_app_after else None)
+            self._do_status(_("status_waiting"),"#FF9800")
+            self.toggle_btn.set_colors("#f44336","#c62828")
+            self.toggle_btn.setText(_("button_stop"))
+            self.pulse.start()
+            self._save_user_data()
+
+    def _save_current_to_history(self):
+        """Kullanıcı DURDUR'a basınca mevcut kaydı geçmişe yazar."""
+        rm = self.rec_mgr
+        if not rm.current_filename:
             return
-        
-        self.scheduled_tasks.append([channel, time_str, selected_days])
-        self.update_scheduler_list()
-        self.save_user_data()
-        self.log(f"📅 Plan eklendi: {channel} - {time_str}", "green")
-        
-        self.scheduler_channel_entry.delete(0, "end")
-        self.scheduler_time_entry.delete(0, "end")
-        for var in self.day_vars.values():
-            var.set(False)
-            
-    def delete_scheduled_record(self):
-        if self.scheduler_selected_var.get() >= 0:
-            idx = self.scheduler_selected_var.get()
-            if 0 <= idx < len(self.scheduled_tasks):
-                removed = self.scheduled_tasks.pop(idx)
-                self.update_scheduler_list()
-                self.save_user_data()
-                self.log(f"❌ Plan silindi: {removed[0]}", "orange")
-                
-    def update_scheduler_list(self):
-        for widget in self.scheduler_listbox.winfo_children():
-            widget.destroy()
-        
-        for idx, task in enumerate(self.scheduled_tasks):
-            days_str = ", ".join(task[2])
-            frame = ctk.CTkFrame(self.scheduler_listbox, corner_radius=8, fg_color=("#3a3a3a", "#2a2a2a"))
-            frame.pack(fill="x", padx=5, pady=3)
-            
-            text = f"📺 {task[0]} | ⏰ {task[1]} | 📅 {days_str}"
-            label = ctk.CTkLabel(frame, text=text, anchor="w", font=ctk.CTkFont(size=12))
-            label.pack(side="left", fill="x", expand=True, padx=10, pady=8)
-            
-            radio = ctk.CTkRadioButton(frame, text="", variable=self.scheduler_selected_var, value=idx, width=20)
-            radio.pack(side="right", padx=10)
-            
-    def stop_current_recording(self):
-        if self.recording:
-            self.stop_record()
-            self.log("⏹ Kayıt durduruldu", "orange")
-            self.toggle_button.configure(text=_("button_start"), fg_color="#4CAF50")
-        else:
-            self.log("⚠ Aktif kayıt yok!", "orange")
-            
-    def set_app_icon(self):
+        if not os.path.exists(rm.current_filename):
+            return
         try:
-            if getattr(sys, 'frozen', False):
-                path = sys._MEIPASS
-            else:
-                path = os.path.dirname(os.path.abspath(__file__))
-            icon_path = os.path.join(path, "kick.ico")
-            if os.path.exists(icon_path):
+            elapsed = int(time.time() - rm.start_time) if rm.start_time else 0
+            size_mb = os.path.getsize(rm.current_filename) / 1_048_576
+            channel = self.channel_input.text().strip().lower()
+            rm._save_history(channel, elapsed, size_mb, rm.current_filename)
+            self._do_log(f"📊 Geçmişe kaydedildi: {size_mb:.2f} MB", "green")
+        except Exception as e:
+            self._do_log(f"⚠ Geçmiş kaydedilemedi: {e}", "orange")
+
+    def _shutdown_computer(self):
+        self._do_log("⚠ 30s sonra bilgisayar kapanacak!","purple")
+        for i in range(30,0,-1):
+            if not self.shutdown_after: self._do_log("✅ Kapatma iptal.","green"); return
+            if i%10==0 or i<=5: self._do_log(f"⏳ {i}s...","orange")
+            time.sleep(1)
+        if self.shutdown_after: os.system("shutdown /s /t 5")
+
+    def _close_app(self):
+        self._do_log("⚠ 10s sonra uygulama kapanacak!","purple")
+        for i in range(10,0,-1):
+            if not self.close_app_after: self._do_log("✅ Kapatma iptal.","green"); return
+            if i<=3: self._do_log(f"⏳ {i}s...","orange")
+            time.sleep(1)
+        if self.close_app_after: QTimer.singleShot(0, self.close); os._exit(0)
+
+    def _on_shutdown_toggle(self, checked:bool):
+        if checked: self.cb_close_app.setChecked(False); self.close_app_after=False
+        self.shutdown_after = checked
+        if checked: self._do_log(_("shutdown_active"),"purple")
+        self._save_user_data()
+
+    def _on_close_app_toggle(self, checked:bool):
+        if checked: self.cb_shutdown.setChecked(False); self.shutdown_after=False
+        self.close_app_after = checked
+        if checked: self._do_log(_("close_app_active"),"purple")
+        self._save_user_data()
+
+    # ── PLANLAYICI ────────────────────────────────────────────────────────────
+    def _trigger_scheduled_record(self, channel:str, folder:str="", quality:str="best"):
+        if self.rec_mgr.recording:
+            self._do_log(f"⚠ Planlı kayıt tetiklendi ama kayıt var: {channel}","orange"); return
+        self.channel_input.setText(channel)
+        if folder: self.folder_input.setText(folder)
+        if not self.folder_input.text().strip():
+            self._do_log(f"❌ Klasör yok: {channel}","red"); return
+        self.quality_combo.setCurrentText(quality)
+        QTimer.singleShot(0, self._toggle_record)
+        self._do_log(f"📅 Planlı kayıt başlatıldı: {channel}","green")
+
+    def _add_scheduled_record(self):
+        channel = self.sched_channel.text().strip().lower()
+        t_str   = self.sched_time.text().strip()
+        folder  = self.sched_folder.text().strip()
+        quality = self.sched_quality.currentText()
+        days    = [d for d,cb in self.day_cbs.items() if cb.isChecked()]
+        if not channel: self._do_log(_("error_channel"),"red"); return
+        if not re.match(r"^\d{2}:\d{2}$",t_str): self._do_log(_("error_time"),"red"); return
+        if not days: self._do_log(_("error_days"),"red"); return
+        self.sched_mgr.add(channel,t_str,days,folder,quality)
+        self._render_sched_list()
+        self._save_user_data()
+        self._do_log(f"📅 Plan eklendi: {channel} {t_str}","green")
+        self.sched_channel.clear(); self.sched_time.clear(); self.sched_folder.clear()
+        for cb in self.day_cbs.values(): cb.setChecked(False)
+
+    def _del_scheduled_record(self):
+        idx = self._selected_sched_idx
+        if 0 <= idx < len(self.sched_mgr.tasks):
+            removed = self.sched_mgr.tasks[idx]
+            self.sched_mgr.remove(idx)
+            self._render_sched_list()
+            self._save_user_data()
+            self._do_log(f"❌ Plan silindi: {removed[0]}","orange")
+            self._selected_sched_idx = -1
+        else:
+            self._do_log(_("error_no_selection"),"orange")
+
+    def _render_sched_list(self):
+        # Listeyi temizle
+        while self.sched_list_layout.count():
+            w = self.sched_list_layout.takeAt(0).widget()
+            if w: w.deleteLater()
+
+        if not self.sched_mgr.tasks:
+            self.sched_list_layout.addWidget(QLabel(_("scheduler_empty"))); return
+
+        self.sched_btn_group = QButtonGroup(self)
+        for idx, task in enumerate(self.sched_mgr.tasks):
+            days_s   = ", ".join(task[2])
+            folder_s = os.path.basename(task[3]) if len(task)>3 and task[3] else ""
+            quality_s= task[4] if len(task)>4 else "best"
+            next_s   = self.sched_mgr.next_run_str(idx)
+            parts = [f"📺 {task[0]}", f"⏰ {task[1]}", f"📅 {days_s}", f"⚙ {quality_s}"]
+            if folder_s: parts.append(f"📁 {folder_s}")
+            if next_s:   parts.append(f"⏭ {next_s}")
+
+            row = QFrame(); row.setObjectName("card")
+            row.setStyleSheet("QFrame#card { background:#1a2a3a; border-radius:8px; padding:4px; }")
+            rl = QHBoxLayout(row); rl.setContentsMargins(12,6,12,6)
+            lbl = QLabel("  |  ".join(parts)); lbl.setStyleSheet("color:#aaa; font-size:12px;")
+            rb  = QRadioButton(); rb.setFixedWidth(20)
+            rb.clicked.connect(lambda _, i=idx: setattr(self,"_selected_sched_idx",i))
+            self.sched_btn_group.addButton(rb, idx)
+            rl.addWidget(lbl); rl.addStretch(); rl.addWidget(rb)
+            self.sched_list_layout.addWidget(row)
+
+    def _stop_current_recording(self):
+        if self.rec_mgr.recording:
+            self.rec_mgr.stop()
+            self._do_status(_("status_stopped"),"#888")
+            self.toggle_btn.set_colors("#4CAF50","#2e7d32")
+            self.toggle_btn.setText(_("button_start"))
+            self.pulse.stop()
+            self._do_log("⏹ Kayıt durduruldu","orange")
+        else:
+            self._do_log("⚠ Aktif kayıt yok!","orange")
+
+    # ── PROFİLLER ─────────────────────────────────────────────────────────────
+    def _add_profile(self):
+        ch = self.prof_channel.text().strip().lower()
+        fo = self.prof_folder.text().strip()
+        if not ch: self._do_log(_("error_channel"),"red"); return
+        if self.profile_mgr.add(ch, fo):
+            self._save_user_data(); self._render_profiles()
+            self._do_log(_("profile_added").format(ch),"green")
+            self.prof_channel.clear(); self.prof_folder.clear()
+        else:
+            self._do_log(_("profile_exists").format(ch),"orange")
+
+    def _delete_profile(self):
+        removed = self.profile_mgr.remove_last()
+        if removed:
+            self._save_user_data(); self._render_profiles()
+            self._do_log(_("profile_deleted").format(removed["channel"]),"orange")
+
+    def _on_profile_click(self, channel:str, folder:str):
+        if self.profile_mgr.active_channel == channel:
+            self.profile_mgr.active_channel = None
+            self.channel_input.clear(); self.folder_input.clear()
+            self._do_log(f"❌ Seçim kaldırıldı: {channel}","orange")
+        else:
+            self.profile_mgr.active_channel = channel
+            self.channel_input.setText(channel)
+            if folder: self.folder_input.setText(folder)
+            self._do_log(f"✅ Profil seçildi: {channel}","green")
+        self._render_profiles(); self._save_user_data()
+
+    def _on_profile_double_click(self, channel:str, folder:str):
+        self.profile_mgr.active_channel = channel
+        self.channel_input.setText(channel)
+        if folder: self.folder_input.setText(folder)
+        self._render_profiles()
+        self.tabs.setCurrentIndex(0)
+        if not self.rec_mgr.recording:
+            self._toggle_record()
+
+    def _render_profiles(self):
+        while self.prof_list_layout.count():
+            w = self.prof_list_layout.takeAt(0).widget()
+            if w: w.deleteLater()
+
+        if not self.profile_mgr.profiles:
+            self.prof_list_layout.addWidget(QLabel(_("scheduler_empty"))); return
+
+        for profile in self.profile_mgr.profiles:
+            ch     = profile["channel"]
+            folder = profile.get("folder","")
+            fname  = os.path.basename(folder) if folder else ""
+            cached = self.profile_mgr._cache.get(ch)
+            is_live= cached[0] if cached else False
+            is_act = (self.profile_mgr.active_channel == ch)
+
+            bg = "#1a3a1a" if is_act else "#1a2a3a"
+            border = "2px solid #4CAF50" if is_act else "1px solid #0f3460"
+            row = QFrame()
+            row.setStyleSheet(f"background:{bg}; border-radius:8px; border:{border}; padding:2px;")
+            rl = QHBoxLayout(row); rl.setContentsMargins(12,6,12,6); rl.setSpacing(10)
+
+            icon = "🟢" if is_live else "🔴"
+            txt  = f"{icon} {ch}" + (f"  📁 {fname}" if fname else "")
+            lbl  = QLabel(txt)
+            lbl.setStyleSheet("font-size:13px; color:#ddd;")
+
+            status_lbl = QLabel("CANLI" if is_live else "YOK")
+            status_lbl.setStyleSheet(f"color:{'#4CAF50' if is_live else '#f44336'}; font-weight:600; font-size:11px; min-width:60px;")
+
+            rl.addWidget(lbl); rl.addStretch(); rl.addWidget(status_lbl)
+            if is_act:
+                act_lbl = QLabel(_("active_profile"))
+                act_lbl.setStyleSheet("color:#4CAF50; font-size:10px; font-weight:700;")
+                rl.addWidget(act_lbl)
+
+            # Tıklama olayları
+            row.mousePressEvent       = lambda _, c=ch, f=folder: self._on_profile_click(c,f)
+            row.mouseDoubleClickEvent = lambda _, c=ch, f=folder: self._on_profile_double_click(c,f)
+            row.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.prof_list_layout.addWidget(row)
+
+    # ── GEÇMİŞ ───────────────────────────────────────────────────────────────
+    def _refresh_history_panel(self):
+        """Geçmiş panelini dosyadan okuyup günceller."""
+        # Mevcut satırları temizle
+        while self.hist_layout.count():
+            w = self.hist_layout.takeAt(0).widget()
+            if w: w.deleteLater()
+
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                history = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            history = []
+
+        if not history:
+            empty = QLabel("  Henüz kayıt yok.")
+            empty.setStyleSheet("color:#444; font-size:12px;")
+            self.hist_layout.addWidget(empty)
+            return
+
+        for idx, kayit in enumerate(reversed(history[-30:])):
+            dosya = kayit.get("dosya", "")
+            # Gerçek index (history listesinde) — reversed olduğu için
+            real_idx = len(history) - 1 - idx
+
+            row = QFrame()
+            row.setStyleSheet("background:#1a1a2e; border-radius:6px; padding:2px;")
+            row.setFixedHeight(34)
+            rl = QHBoxLayout(row); rl.setContentsMargins(10, 0, 8, 0); rl.setSpacing(6)
+
+            kanal = kayit.get("kanal", "?")
+            sure  = kayit.get("sure",  "?")
+            boyut = kayit.get("boyut", "?")
+            tarih = kayit.get("tarih", "?")
+
+            info = QLabel(
+                f"<span style='color:#4CAF50;font-weight:600'>📺 {kanal}</span>"
+                f"<span style='color:#555'>  |  </span>"
+                f"<span style='color:#aaa'>⏱ {sure}</span>"
+                f"<span style='color:#555'>  |  </span>"
+                f"<span style='color:#aaa'>💾 {boyut}</span>"
+                f"<span style='color:#555'>  |  </span>"
+                f"<span style='color:#666'>📅 {tarih}</span>"
+            )
+            info.setTextFormat(Qt.TextFormat.RichText)
+            info.setStyleSheet("font-size:12px;")
+            rl.addWidget(info); rl.addStretch()
+
+            # 📂 Klasörde aç butonu
+            if dosya and os.path.exists(dosya):
+                btn_open = HoverButton("📂", base="#2196F3", hover="#1565C0", radius=5)
+                btn_open.setFixedSize(28, 24)
+                btn_open.clicked.connect(lambda _, p=dosya: os.startfile(p))
+                rl.addWidget(btn_open)
+
+            # 🗑 Sil butonu — her zaman görünür
+            btn_del = HoverButton("🗑", base="#c62828", hover="#b71c1c", radius=5)
+            btn_del.setFixedSize(28, 24)
+            btn_del.clicked.connect(lambda _, i=real_idx, k=kayit: self._delete_history_entry(i, k))
+            rl.addWidget(btn_del)
+
+            self.hist_layout.addWidget(row)
+
+    def _delete_history_entry(self, idx: int, kayit: dict):
+        """Geçmiş kaydını siler — isteğe bağlı olarak dosyayı da siler."""
+        kanal = kayit.get("kanal", "?")
+        dosya = kayit.get("dosya", "")
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Kaydı Sil")
+        msg.setIcon(QMessageBox.Icon.Question)
+        msg.setText(
+            f"<b style='color:#e0e0e0;font-size:14px'>{kanal}</b> "
+            f"<span style='color:#aaa;font-size:13px'>kanalının bu kaydını<br>geçmişten silmek istiyor musunuz?</span>"
+        )
+        msg.setInformativeText(
+            f"<span style='color:#888;font-size:12px'>"
+            f"📅 {kayit.get('tarih','')} &nbsp;|&nbsp; "
+            f"⏱ {kayit.get('sure','')} &nbsp;|&nbsp; "
+            f"💾 {kayit.get('boyut','')}"
+            f"</span>"
+        )
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: #1a1a2e;
+                color: #e0e0e0;
+            }
+            QMessageBox QLabel {
+                color: #e0e0e0;
+                font-size: 13px;
+            }
+            QPushButton {
+                background-color: #16213e;
+                color: #e0e0e0;
+                border: 1px solid #0f3460;
+                border-radius: 6px;
+                padding: 6px 20px;
+                font-size: 13px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background-color: #0f3460;
+            }
+        """)
+        btn_evet = msg.addButton("✔  Evet", QMessageBox.ButtonRole.YesRole)
+        btn_evet.setStyleSheet("background:#4CAF50; color:white; border:none; border-radius:6px; padding:6px 20px;")
+        btn_hayir = msg.addButton("✘  Hayır", QMessageBox.ButtonRole.NoRole)
+        btn_hayir.setStyleSheet("background:#f44336; color:white; border:none; border-radius:6px; padding:6px 20px;")
+        msg.setDefaultButton(btn_hayir)
+        msg.exec()
+        if msg.clickedButton() != btn_evet:
+            return
+
+        # Dosyayı da silmek istiyor mu?
+        if dosya and os.path.exists(dosya):
+            msg2 = QMessageBox(self)
+            msg2.setWindowTitle("Video Dosyası")
+            msg2.setIcon(QMessageBox.Icon.Warning)
+            msg2.setText(
+                "<span style='color:#e0e0e0;font-size:13px'>"
+                "Video dosyasını da <b>diskten</b> silmek istiyor musunuz?</span>"
+            )
+            msg2.setInformativeText(
+                f"<span style='color:#888;font-size:11px'>{dosya}</span>"
+            )
+            msg2.setStyleSheet("""
+                QMessageBox { background-color: #1a1a2e; color: #e0e0e0; }
+                QMessageBox QLabel { color: #e0e0e0; font-size: 13px; }
+                QPushButton {
+                    background-color: #16213e; color: #e0e0e0;
+                    border: 1px solid #0f3460; border-radius: 6px;
+                    padding: 6px 20px; font-size: 13px; min-width: 80px;
+                }
+                QPushButton:hover { background-color: #0f3460; }
+            """)
+            b_evet2 = msg2.addButton("🗑  Evet, Sil", QMessageBox.ButtonRole.YesRole)
+            b_evet2.setStyleSheet("background:#f44336; color:white; border:none; border-radius:6px; padding:6px 20px;")
+            b_hayir2 = msg2.addButton("✘  Hayır", QMessageBox.ButtonRole.NoRole)
+            b_hayir2.setStyleSheet("background:#555; color:white; border:none; border-radius:6px; padding:6px 20px;")
+            msg2.setDefaultButton(b_hayir2)
+            msg2.exec()
+            if msg2.clickedButton() == b_evet2:
                 try:
-                    self.iconbitmap(icon_path)
-                    console_log("✅ İkon yüklendi", "green")
-                except:
-                    pass
-        except:
-            pass
-    
-    def on_closing(self):
-        if self.recording:
-            if messagebox.askyesno("Uyarı", "Kayıt devam ediyor! Gerçekten çıkmak istiyor musunuz?"):
-                self.save_user_data()
-                self.save_profiles()
-                self.destroy()
+                    os.remove(dosya)
+                    self._do_log(f"🗑 Dosya silindi: {os.path.basename(dosya)}", "orange")
+                except Exception as e:
+                    self._do_log(f"⚠ Dosya silinemedi: {e}", "red")
+
+        # Geçmiş JSON'dan sil
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                history = json.load(f)
+            if 0 <= idx < len(history):
+                history.pop(idx)
+            with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+                json.dump(history, f, indent=2, ensure_ascii=False)
+            self._do_log(f"🗑 Geçmişten silindi: {kanal}", "orange")
+        except Exception as e:
+            self._do_log(f"⚠ Geçmiş güncellenemedi: {e}", "red")
+
+        # Paneli yenile
+        self._refresh_history_panel()
+
+    def _show_history(self):
+        """Eski uyumluluk için kaldı — artık kullanılmıyor."""
+        self._refresh_history_panel()
+
+    # ── GÜNCELLEME ────────────────────────────────────────────────────────────
+    def _check_updates(self):
+        try:
+            self._do_log("🔄 Güncelleme kontrol ediliyor...","blue")
+            r = requests.get("https://raw.githubusercontent.com/erneman26/Kick-Canli-Yayin-Kaydedici/main/version.json",timeout=5)
+            if r.status_code==200:
+                latest = r.json().get("version",VERSION)
+                if latest > VERSION:
+                    self._do_log(f"✨ Yeni sürüm: {latest}","green")
+                    ans = QMessageBox.question(self,"Güncelleme",f"Sürüm {latest} mevcut. İndir?")
+                    if ans == QMessageBox.StandardButton.Yes:
+                        webbrowser.open("https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/releases/latest")
+                else:
+                    self._do_log("✅ Güncel sürümdesiniz.","green")
+        except: self._do_log("⚠ Güncelleme kontrol edilemedi.","orange")
+
+    # ── AYARLAR ───────────────────────────────────────────────────────────────
+    def _change_theme(self, choice:str):
+        # PyQt6'da sistem teması QPalette ile uygulanır
+        mode = self._theme_map.get(choice,"dark")
+        if mode == "light":
+            QApplication.instance().setStyle("Fusion")
+            p = QPalette(); p.setColor(QPalette.ColorRole.Window, QColor("#f5f5f5"))
+            QApplication.instance().setPalette(p)
         else:
-            self.save_user_data()
-            self.save_profiles()
-            self.destroy()
+            QApplication.instance().setStyleSheet(APP_STYLE)
+        self._save_user_data()
 
-# ---------- UYGULAMAYI BAŞLAT ----------
-PROFILES_FILE = "profiller.json"
+    def _change_language(self, choice:str):
+        global current_lang
+        self._save_user_data(); self.profile_mgr.save()
+        current_lang = choice
+        try:
+            with open(LANG_SEL_FILE,"w",encoding="utf-8") as f: json.dump({"language":choice},f)
+        except Exception as e: log.warning(f"Dil kaydedilemedi: {e}")
+        QMessageBox.information(self, _("language_label"),
+                                f"Dil '{choice}' seçildi. Yeniden başlatılıyor...")
+        os.execl(sys.executable, sys.executable, *sys.argv)
 
+    # ── KLASÖR SEÇİMİ ─────────────────────────────────────────────────────────
+    def _select_folder(self):
+        f = QFileDialog.getExistingDirectory(self,"Kayıt Klasörü Seç")
+        if f: self.folder_input.setText(f); self._do_log(f"📁 Klasör: {f}","green"); self._save_user_data()
+
+    def _select_sched_folder(self):
+        f = QFileDialog.getExistingDirectory(self,"Planlayıcı Klasörü Seç")
+        if f: self.sched_folder.setText(f)
+
+    def _select_profile_folder(self):
+        f = QFileDialog.getExistingDirectory(self,"Profil Klasörü Seç")
+        if f: self.prof_folder.setText(f)
+
+    # ── VERİ KAYDETME / YÜKLEME ───────────────────────────────────────────────
+    def _save_user_data(self):
+        try:
+            data = {
+                "channel":   self.channel_input.text(),
+                "folder":    self.folder_input.text(),
+                "quality":   self.quality_combo.currentText(),
+                "shutdown":  self.shutdown_after,
+                "close_app": self.close_app_after,
+                "profiles":  self.profile_mgr.profiles,
+                "schedules": self.sched_mgr.tasks,
+            }
+            with open(DATA_FILE,"w",encoding="utf-8") as f: json.dump(data,f,indent=2,ensure_ascii=False)
+        except Exception as e: log.warning(f"Veri kaydedilemedi: {e}")
+
+    def _load_user_data(self):
+        try:
+            with open(DATA_FILE,"r",encoding="utf-8") as f: data = json.load(f)
+            if data.get("channel"):   self.channel_input.setText(data["channel"])
+            if data.get("folder"):    self.folder_input.setText(data["folder"])
+            if data.get("quality"):   self.quality_combo.setCurrentText(data["quality"])
+            if data.get("shutdown"):  self.cb_shutdown.setChecked(True);  self.shutdown_after=True
+            if data.get("close_app"): self.cb_close_app.setChecked(True); self.close_app_after=True
+            if "profiles"  in data:   self.profile_mgr.profiles = data["profiles"];  self._render_profiles()
+            if "schedules" in data:
+                self.sched_mgr.tasks = data["schedules"]; self.sched_mgr.rebuild(); self._render_sched_list()
+            log.info("Kullanıcı verileri yüklendi.")
+        except FileNotFoundError: log.info("İlk çalıştırma.")
+        except Exception as e:    log.warning(f"Veri yüklenemedi: {e}")
+
+    # ── SYSTEM TRAY ───────────────────────────────────────────────────────────
+    def _init_tray(self):
+        try:
+            ico_path = "kick.ico"
+            img = PilImage.open(ico_path) if os.path.exists(ico_path) \
+                else PilImage.new("RGBA",(64,64),color=(76,175,80,255))
+            menu = pystray.Menu(
+                pystray.MenuItem("Göster",        lambda: QTimer.singleShot(0, self.show), default=True),
+                pystray.MenuItem("Kaydı Durdur",  lambda: QTimer.singleShot(0, self._stop_current_recording)),
+                pystray.MenuItem("Çıkış",         lambda: QTimer.singleShot(0, self.close)),
+            )
+            self._tray_icon = pystray.Icon("KickRecorder",img,f"Kick Recorder {VERSION}",menu)
+            threading.Thread(target=self._tray_icon.run,daemon=True).start()
+        except Exception as e: log.warning(f"Tray başlatılamadı: {e}")
+
+    # ── KAPATMA ───────────────────────────────────────────────────────────────
+    def closeEvent(self, event):
+        if self.rec_mgr.recording:
+            ans = QMessageBox.question(self,"Uyarı","Kayıt devam ediyor! Çıkmak istiyor musunuz?")
+            if ans != QMessageBox.StandardButton.Yes:
+                event.ignore(); return
+        self._save_user_data(); self.profile_mgr.save()
+        if self._tray_icon:
+            try: self._tray_icon.stop()
+            except: pass
+        event.accept()
+
+    def _on_window_close(self):
+        """Tray varsa gizle, yoksa kapat."""
+        if TRAY_OK and self._tray_icon: self.hide()
+        else: self.close()
+
+
+# ─── GİRİŞ ────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    app = App()
-    app.protocol("WM_DELETE_WINDOW", app.on_closing)
-    
-    print(Renkler.YESIL + "\n" + "-"*70)
-    print(f"✅ {_('app_title')} {VERSION} başlatıldı")
-    print(f"🌍 Sistem dili: {current_lang}")
-    print("-"*70 + "\n" + Renkler.SON)
-    
-    app.mainloop()
+    app = QApplication(sys.argv)
+    app.setApplicationName(f"Kick Recorder {VERSION}")
+    app.setStyleSheet(APP_STYLE)
+
+    win = MainWindow()
+    win.show()
+
+    print(f"{R.BOLD}{R.YESIL}  ✔  {_('app_title')} {VERSION} hazır  |  🌍 {current_lang}{R.SON}\n")
+    sys.exit(app.exec())

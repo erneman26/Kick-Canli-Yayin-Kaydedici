@@ -1,129 +1,104 @@
-# 🎥 Kick Canlı Yayın Kaydedici
+# 🎬 Kick Canlı Yayın Kaydedici
 
-**v1.3** | Windows | Python
+<div align="center">
 
-Kick platformundaki canlı yayınları otomatik olarak kaydeden, kullanıcı dostu ve modern arayüzlü bir program.
-
-![Version](https://img.shields.io/badge/version-v1.3-brightgreen)
+![Version](https://img.shields.io/badge/version-v1.4-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
-![License](https://img.shields.io/badge/license-MIT-orange)
+![Python](https://img.shields.io/badge/python-3.10%2B-yellow)
+![License](https://img.shields.io/badge/license-MIT-purple)
+
+**Kick.com canlı yayınlarını otomatik olarak kaydeden, modern arayüzlü bir masaüstü uygulaması.**
+
+</div>
 
 ---
 
-## 📥 KURULUM
+## 📸 Ekran Görüntüleri
 
-### 1. Streamlink'i İndir
-Programın çalışması için **Streamlink** gereklidir.  
-👉 [https://streamlink.github.io/](https://streamlink.github.io/)
-
-### 2. Kick Kaydedici'yi İndir
-Sağ taraftaki **Releases** sayfasından son sürümü indir.
-
-### 3. RAR'dan Çıkar
-İndirdiğin RAR dosyasını WinRAR veya 7-Zip ile aç. İçinden çıkanlar:
-- `KickCanliYayinKaydedici.exe` - Programın kendisi
-- `kayit_gecmisi.json` - Kayıt geçmişi (otomatik oluşur)
-
-### 4. Çalıştır
-`KickCanliYayinKaydedici.exe` dosyasını çalıştır.
+> Kayıt, Planlayıcı, Profiller ve Loglar sekmeleri
 
 ---
 
-## ⚠ ÖNEMLİ UYARILAR
+## ✨ Özellikler
 
-### 🖥️ CMD Penceresi
-Program çalışırken arkada bir komut ekranı açık kalır. **Bu pencereyi kapatmayın!**  
-İsterseniz simge durumuna küçültebilirsiniz.
-
-### 🛡️ Windows Uyarısı
-İlk çalıştırmada Windows SmartScreen uyarısı alabilirsiniz. Bu normaldir, **"Diğer bilgiler" → "Yine de çalıştır"** seçeneğini kullanabilirsiniz.
-
----
-
-## 🚀 KULLANIM
-
-| Adım | Açıklama |
-|------|----------|
-| 1 | Kanal adını girin (örnek: `j0mada`) |
-| 2 | Kayıtların kaydedileceği klasörü seçin |
-| 3 | **BAŞLAT** butonuna tıklayın |
-| 4 | Program yayını bekler, başlayınca otomatik kaydeder |
-
-> 💡 **İpucu:** Aynı buton kayıt sırasında **DURDUR** olur. Tek buton ile başlatıp durdurabilirsiniz.
+- 🔴 **Otomatik kayıt** — Yayın başlayınca otomatik kayıt, bitince durur
+- 📅 **Planlayıcı** — Haftalık program ile istediğin saatte otomatik kayıt
+- ⭐ **Profiller** — Sık takip ettiğin kanalları kaydet, tek tıkla seç
+- 📜 **Kayıt geçmişi** — Tüm kayıtlarını tarih, süre ve boyutuyla listeler
+- 🌍 **11 dil desteği** — Türkçe, English, Deutsch, Français, Español, Italiano, Português, Русский, 日本語, 한국어, 中文
+- ⚙ **Kalite seçimi** — otomatik, best, 1080p, 720p, 480p
+- 💻 **Yayın bitince kapat** — Bilgisayarı veya uygulamayı otomatik kapat
+- 🔔 **Bildirim desteği** — Kayıt başlayınca/bitince sistem bildirimi (plyer)
+- 🖥 **System tray** — Pencereyi kapatınca arka planda çalışmaya devam eder (pystray)
+- 📊 **Gerçek zamanlı bilgi** — Kayıt süresi ve dosya boyutu anlık güncellenir
 
 ---
 
-## ✨ ÖZELLİKLER
+## 🚀 Kurulum
 
-### 🎬 KAYIT ÖZELLİKLERİ
-- ✅ **Tek buton sistemi** - BAŞLAT / DURDUR aynı butonda
-- ✅ **Otomatik kayıt** - Yayın başlayınca başlar, bitince durur
-- ✅ **Anlık bilgi** - Kayıt süresi ve dosya boyutu gösterimi
-- ✅ **Otomatik kalite seçimi** - Mevcut en iyi kaliteyi bulur
-- ✅ **İnternet kopması toleransı** - Bağlantı gelince devam eder
-- ✅ **Yayın bitince bilgisayarı kapatma**
-- ✅ **Yayın bitince uygulamayı kapatma**
+### Yöntem 1 — EXE (Önerilen)
 
-### ⭐ PROFİLLER
-- ✅ **Kanal kaydetme** - Sık kullandığın kanalları profillere ekle
-- ✅ **Klasör desteği** - Her kanal için farklı kayıt klasörü
-- ✅ **Canlı yayın göstergesi** - 🟢 CANLI / 🔴 YAYINDA DEĞİL
-- ✅ **Tek tıkla seçme** - Profile tıkla, kanal ve klasör otomatik doldurulsun
-- ✅ **Seçili profil vurgusu** - Aktif profil yeşil çerçeve ile belirgin
+1. [Releases](../../releases) sayfasından son sürümü indir
+2. `KickRecorder_v1.4.rar` dosyasını aç
+3. `KickRecorder.exe` dosyasını çalıştır
 
-### 📅 PLANLAYICI
-- ✅ **Zamanlı kayıt** - Belirlediğin saatte otomatik kayıt başlat
-- ✅ **Çoklu gün seçimi** - Hangi günlerde çalışacağını seç
-- ✅ **Plan silme** - İptal etmek istediğin planları kaldır
+> ⚠ **streamlink** kurulu olması gerekiyor:
+> ```bash
+> pip install streamlink
+> ```
 
-### 🌍 DİL DESTEĞİ
-- ✅ **11 dil** - Türkçe, English, Deutsch, Français, Español, Italiano, Português, Русский, 日本語, 한국어, 中文
-- ✅ **Otomatik algılama** - Sistem dilini algılar, o dilde başlar
+## 📁 Dosya Yapısı
 
-### 🎨 ARAYÜZ
-- ✅ **Modern tasarım** - Yuvarlak köşeler, kart görünümü
-- ✅ **Animasyonlu butonlar** - Fare üzerine gelince renk değiştirir
-- ✅ **Hover efektleri** - Tüm butonlarda görsel geri bildirim
-- ✅ **Karanlık / Açık tema** - Sistem temasını takip eder
-- ✅ **Renkli durum çubuğu** - Kayıt durumuna göre renk değiştirir
-
-### 📜 DİĞER
-- ✅ **Kayıt geçmişi** - Daha önce kaydettiğin yayınları listeler
-- ✅ **Otomatik güncelleme kontrolü** - Yeni sürüm var mı kontrol eder
-- ✅ **Detaylı log sistemi** - Tüm işlemleri kaydeder
+```
+├── kickrecorder.exe   # Ana uygulama
+├── languages.json     # 11 dil dosyası
+```
 
 ---
 
-## 📁 DOSYA YAPISI
-KickCanliYayinKaydedici.exe
-profiller.json
-kayit_gecmisi.json
-planlar.json
+## 🛠 Kullanım
+
+1. **Kanal Adı** alanına Kick kullanıcı adını gir (örn: `xqc`)
+2. **Kalite** seç (otomatik önerilir)
+3. **Kayıt Klasörü** seç
+4. **▶ BAŞLAT** butonuna bas
+5. Uygulama yayını bekler, başlayınca otomatik kayıt alır
+
+### Planlayıcı
+- Kanal adı, saat (HH:MM) ve günleri seç
+- **➕ Ekle** ile planı kaydet
+- Belirlenen saatte uygulama otomatik kayda başlar
+
+### Profiller
+- Sık kullandığın kanalları kaydet
+- Listedeki kanala **çift tıkla** → direkt kayıt başlar
+- 🟢 yeşil = şu an canlı, 🔴 kırmızı = çevrimdışı
 
 ---
 
-## ❓ SIK SORULAN SORULAR
+## ❓ Sık Sorulan Sorular
 
-### Program neden "Streamlink bulunamadı" hatası veriyor?
-Streamlink bilgisayarınızda kurulu değil. [Buradan](https://streamlink.github.io/) indirip kurun.
+**Antivirüs uyarısı veriyor?**
+> PyInstaller ile paketlenen uygulamalarda yaygın bir durum. False positive — güvenli.
 
-### CMD penceresini kapatırsam ne olur?
-Kayıt durur ve program kapanır. Bu pencereyi **simge durumuna küçültmeniz** önerilir.
+**streamlink nedir?**
+> Canlı yayınları kaydetmek için kullanılan açık kaynaklı bir araç. `pip install streamlink` ile kurulur.
 
-### 1080p seçmeme rağmen neden daha düşük kalitede kaydediyor?
-Yayıncı 1080p yayın yapmıyor olabilir. Program otomatik olarak mevcut en yüksek kaliteyi bulur ve onu kullanır.
+**Kayıt nereye kaydediliyor?**
+> Seçtiğin klasörün altında `kanal_adı/kanal_adı_TARIH-SAAT.mp4` formatında.
 
-### Profillerdeki 🟢 ve 🔴 ne anlama geliyor?
-- 🟢 **CANLI** - Kanal şu anda yayında
-- 🔴 **YAYINDA DEĞİL** - Kanal yayında değil
-
-### Kayıtlar nereye kaydediliyor?
-Program, seçtiğiniz ana klasör içinde **kanal_adı** adında bir alt klasör oluşturur. Dosya adı formatı: `kanal_2024-01-01_12-30-00.mp4`
+**Yayın canlı değilken ne oluyor?**
+> Uygulama yayını bekler. Her 10 saniyede bir kontrol eder, yayın başlayınca otomatik kaydeder.
 
 ---
 
-## 🔧 GELİŞTİRİCİLER İÇİN
+## 📝 Lisans
 
-### Gereksinimler
-```bash
-pip install customtkinter pillow requests schedule streamlink
+MIT License — dilediğin gibi kullanabilirsin.
+
+---
+
+<div align="center">
+Geliştirici: <b>erneman26</b> &nbsp;•&nbsp; 
+<a href="https://github.com/erneman26">GitHub</a>
+</div>
