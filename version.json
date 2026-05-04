@@ -1,5 +1,7 @@
 {
-    "version": "v1.3",
-    "download_url": "https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/releases/latest",
-    "release_notes": "• Sistem dilini otomatik algılama (11 dil)\n• Gelişmiş kalite sistemi (mevcut kaliteyi otomatik bulur)\n• Profillerde canlı yayın durumu göstergesi (🟢/🔴)\n• Profile tıklayarak seçme/çıkarma\n• Profillerde klasör desteği\n• Seçili profil yeşil vurgulu gösterim\n• Modern animasyonlu butonlar\n• Yuvarlak köşeli kart tasarımı\n• Hover efektleri\n• Ayarlar sekmesinde düzenlenmiş bilgi kartı\n• Hata düzeltmeleri ve performans iyileştirmeleri"
+  "version": "v1.4",
+  "release_date": "2026-05-05",
+  "changelog": "Tamamen yeni PyQt6 arayüzü, animasyonlu widget'lar, gömülü kayıt geçmişi, 11 dil desteği, exponential backoff, planlayıcıya kalite seçimi eklendi. Çok sayıda hata düzeltildi.",
+  "download_url": "https://github.com/erneman26/Kick-Canli-Yayin-Kaydedici/releases/latest",
+  "min_python": "3.10"
 }
